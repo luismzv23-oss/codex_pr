@@ -2,6 +2,20 @@
 
 <?= $this->section('content') ?>
 <div class="page-transition space-y-8">
+    <?php
+        $chartLabels = $dashboard['chart']['labels'] ?? [];
+        $chartSeries = $dashboard['chart']['series'] ?? [];
+        $hasChartData = false;
+
+        foreach ($chartSeries as $serie) {
+            foreach (($serie['data'] ?? []) as $value) {
+                if ((float) $value > 0) {
+                    $hasChartData = true;
+                    break 2;
+                }
+            }
+        }
+    ?>
     <section class="rounded-[2rem] bg-gradient-to-br from-slate-950 via-cyan-950 to-emerald-900 p-8 text-white shadow-2xl">
         <p class="text-sm uppercase tracking-[0.3em] text-emerald-200">Prestamos lending hub</p>
         <div class="mt-4 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -44,7 +58,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Tendencia de pagos</h2>
-                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Serie simple para validar el tablero base.</p>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Evolucion real de pagos, mora y originacion de prestamos.</p>
                 </div>
                 <div class="rounded-full bg-rose-500/10 px-3 py-1 text-xs font-medium text-rose-600 dark:text-rose-300">
                     Mora: <?= esc(money($dashboard['stats']['overdue_amount'])) ?>
@@ -72,18 +86,18 @@
 <?= $this->section('scripts') ?>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const labels = <?= json_encode($dashboard['chart']['labels']) ?>;
-        const values = <?= json_encode($dashboard['chart']['values']) ?>;
+        const labels = <?= json_encode($chartLabels) ?>;
+        const series = <?= json_encode($chartSeries) ?>;
 
         const chart = new ApexCharts(document.querySelector('#chart-evolution'), {
-            series: [{ name: 'Pagos', data: values.length ? values : [0] }],
+            series: <?= $hasChartData ? 'series' : "[{ name: 'Sin datos', data: [0] }]" ?>,
             chart: {
                 height: 320,
                 type: 'area',
                 toolbar: { show: false },
                 foreColor: '#94a3b8'
             },
-            colors: ['#00FF87'],
+            colors: ['#00FF87', '#fb7185', '#38bdf8'],
             stroke: { curve: 'smooth', width: 3 },
             dataLabels: { enabled: false },
             fill: {
@@ -93,8 +107,22 @@
                     opacityTo: 0.08
                 }
             },
+            yaxis: {
+                labels: {
+                    formatter: function (value) {
+                        return Number(value).toLocaleString('es-AR');
+                    }
+                }
+            },
             xaxis: {
                 categories: labels.length ? labels : ['Sin datos']
+            },
+            tooltip: {
+                y: {
+                    formatter: function (value) {
+                        return Number(value).toLocaleString('es-AR');
+                    }
+                }
             }
         });
 

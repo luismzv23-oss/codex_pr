@@ -52,7 +52,7 @@
             <div class="glass-card p-6">
                 <div class="flex items-center justify-between">
                     <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Solicitudes</h2>
-                    <a href="/solicitudes/crear" class="text-sm text-cyan-600 hover:text-cyan-500">Crear nueva</a>
+                    <a href="/solicitudes/crear?customer_guid=<?= esc($customer['guid']) ?>" class="text-sm text-cyan-600 hover:text-cyan-500">Crear nueva</a>
                 </div>
                 <div class="mt-5 space-y-3">
                     <?php foreach ($applications as $application): ?>

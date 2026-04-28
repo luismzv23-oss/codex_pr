@@ -9,15 +9,23 @@
 
     <form method="post" action="/solicitudes/guardar" class="glass-card space-y-6 p-8">
         <?= csrf_field() ?>
+        <?php $lockedCustomerGuid = old('customer_guid', $selectedCustomer['guid'] ?? ''); ?>
         <div class="grid gap-6 md:grid-cols-2">
             <label class="space-y-2 md:col-span-2">
                 <span class="text-sm font-medium">Cliente</span>
-                <select name="customer_guid" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900" required>
+                <?php if (! empty($selectedCustomer)): ?>
+                    <input type="hidden" name="customer_guid" value="<?= esc($lockedCustomerGuid) ?>">
+                    <input type="hidden" name="source_customer_guid" value="<?= esc($selectedCustomer['guid']) ?>">
+                <?php endif; ?>
+                <select name="<?= ! empty($selectedCustomer) ? 'customer_guid_locked' : 'customer_guid' ?>" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900" <?= ! empty($selectedCustomer) ? 'disabled' : '' ?> required>
                     <option value="">Seleccionar cliente</option>
                     <?php foreach ($customers as $customer): ?>
-                        <option value="<?= esc($customer['guid']) ?>" <?= old('customer_guid') === $customer['guid'] ? 'selected' : '' ?>><?= esc($customer['full_name']) ?></option>
+                        <option value="<?= esc($customer['guid']) ?>" <?= $lockedCustomerGuid === $customer['guid'] ? 'selected' : '' ?>><?= esc($customer['full_name']) ?></option>
                     <?php endforeach; ?>
                 </select>
+                <?php if (! empty($selectedCustomer)): ?>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Esta solicitud queda vinculada a la ficha del cliente seleccionada.</p>
+                <?php endif; ?>
             </label>
             <label class="space-y-2">
                 <span class="text-sm font-medium">Monto solicitado</span>
@@ -30,7 +38,7 @@
             <label class="space-y-2">
                 <span class="text-sm font-medium">Tasa (%)</span>
                 <input type="number" step="0.01" min="0" name="interest_rate" value="<?= old('interest_rate', '15') ?>" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900" required>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Ingresa el porcentaje directo. Ejemplo: <strong>15</strong> equivale a <strong>15%</strong>.</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Ingresa la tasa mensual que se usara para calcular las cuotas. Ejemplo: <strong>10</strong> equivale a <strong>10%</strong> mensual.</p>
             </label>
             <label class="space-y-2">
                 <span class="text-sm font-medium">Plazo (meses)</span>

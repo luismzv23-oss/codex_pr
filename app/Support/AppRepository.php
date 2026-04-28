@@ -32,10 +32,33 @@ class AppRepository
             static fn(array $application): bool => in_array($application['status'], ['draft', 'evaluation', 'approved'], true)
         ));
 
-        $monthlyPayments = [];
+        $chartBuckets = $this->buildDashboardChartBuckets();
+
         foreach ($payments as $payment) {
-            $month = date('M', strtotime($payment['created_at']));
-            $monthlyPayments[$month] = ($monthlyPayments[$month] ?? 0) + (float) $payment['amount'];
+            $bucket = $this->resolveDashboardBucket($payment['created_at'] ?? null);
+            if ($bucket === null) {
+                continue;
+            }
+
+            $chartBuckets[$bucket]['payments'] += round((float) ($payment['amount'] ?? 0), 2);
+        }
+
+        foreach ($installments as $installment) {
+            $bucket = $this->resolveDashboardBucket($installment['due_date'] ?? null);
+            if ($bucket === null || $installment['status'] !== 'overdue') {
+                continue;
+            }
+
+            $chartBuckets[$bucket]['overdue'] += round((float) ($installment['amount_due'] ?? 0), 2);
+        }
+
+        foreach ($loans as $loan) {
+            $bucket = $this->resolveDashboardBucket($loan['disbursed_at'] ?? $loan['created_at'] ?? null);
+            if ($bucket === null) {
+                continue;
+            }
+
+            $chartBuckets[$bucket]['loans'] += round((float) ($loan['principal_amount'] ?? 0), 2);
         }
 
         $upcomingInstallments = array_values(array_filter($installments, static function (array $item): bool {
@@ -56,12 +79,28 @@ class AppRepository
                 'pending_applications' => count($pendingApplications),
                 'active_loans' => count($activeLoans),
                 'monthly_income' => array_sum(array_map(static fn(array $payment): float => (float) $payment['amount'], $payments)),
-                'overdue_amount' => array_sum(array_map(static fn(array $item): float => (float) $item['total_amount'], $overdueInstallments)),
+                'overdue_amount' => array_sum(array_map(static fn(array $item): float => (float) ($item['amount_due'] ?? 0), $overdueInstallments)),
                 'upcoming_installments' => count($upcomingInstallments),
             ],
             'chart' => [
-                'labels' => array_values(array_keys($monthlyPayments)),
-                'values' => array_values(array_map(static fn($value): float => round($value, 2), $monthlyPayments)),
+                'labels' => array_map(
+                    static fn(array $item): string => $item['label'],
+                    array_values($chartBuckets)
+                ),
+                'series' => [
+                    [
+                        'name' => 'Pagos',
+                        'data' => array_map(static fn(array $item): float => round($item['payments'], 2), array_values($chartBuckets)),
+                    ],
+                    [
+                        'name' => 'Mora',
+                        'data' => array_map(static fn(array $item): float => round($item['overdue'], 2), array_values($chartBuckets)),
+                    ],
+                    [
+                        'name' => 'Prestamos',
+                        'data' => array_map(static fn(array $item): float => round($item['loans'], 2), array_values($chartBuckets)),
+                    ],
+                ],
             ],
             'recent_activity' => array_slice($auditLogs, 0, 5),
         ];
@@ -176,7 +215,7 @@ class AppRepository
     {
         foreach ($this->getLoans() as $loan) {
             if ($loan['guid'] === $guid) {
-                return $loan;
+                return $this->synchronizeUntouchedLoanSchedule($loan);
             }
         }
 
@@ -789,6 +828,181 @@ class AppRepository
         } catch (Throwable) {
             // Fallback/demo mode does not persist generated schedules.
         }
+    }
+
+    private function synchronizeUntouchedLoanSchedule(array $loan): array
+    {
+        try {
+            $installmentModel = new InstallmentModel();
+            $paymentModel = new PaymentModel();
+            $loanModel = new LoanModel();
+
+            $existing = $installmentModel->asArray()
+                ->where('loan_guid', $loan['guid'])
+                ->orderBy('installment_number', 'ASC')
+                ->findAll();
+
+            if ($existing === []) {
+                return $loan;
+            }
+
+            if ($paymentModel->where('loan_guid', $loan['guid'])->countAllResults() > 0) {
+                return $loan;
+            }
+
+            foreach ($existing as $item) {
+                if (
+                    round((float) ($item['paid_amount'] ?? 0), 2) > 0
+                    || round((float) ($item['late_fee'] ?? 0), 2) > 0
+                    || in_array((string) ($item['status'] ?? 'pending'), ['paid', 'partial'], true)
+                ) {
+                    return $loan;
+                }
+            }
+
+            $expected = (new AmortizationService())->generateSchedule($loan);
+            if ($expected === []) {
+                return $loan;
+            }
+
+            if (! $this->loanScheduleNeedsSync($loan, $existing, $expected)) {
+                return $loan;
+            }
+
+            $existingByNumber = [];
+            foreach ($existing as $item) {
+                $existingByNumber[(int) $item['installment_number']] = $item;
+            }
+
+            $expectedNumbers = array_map(
+                static fn(array $item): int => (int) $item['installment_number'],
+                $expected
+            );
+
+            foreach ($existing as $item) {
+                if (! in_array((int) $item['installment_number'], $expectedNumbers, true)) {
+                    $installmentModel->delete($item['guid'], true);
+                }
+            }
+
+            foreach ($expected as $item) {
+                $number = (int) $item['installment_number'];
+                $payload = [
+                    'due_date' => $item['due_date'],
+                    'principal_amount' => $item['principal_amount'],
+                    'interest_amount' => $item['interest_amount'],
+                    'total_amount' => $item['total_amount'],
+                    'paid_amount' => 0,
+                    'remaining_balance' => $item['remaining_balance'],
+                    'status' => strtotime($item['due_date']) < strtotime('today') ? 'overdue' : 'pending',
+                    'paid_at' => null,
+                    'late_fee' => 0,
+                ];
+
+                if (isset($existingByNumber[$number])) {
+                    $installmentModel->update($existingByNumber[$number]['guid'], $payload);
+                    continue;
+                }
+
+                $installmentModel->insert($payload + [
+                    'loan_guid' => $loan['guid'],
+                    'installment_number' => $number,
+                ]);
+            }
+
+            $totalPayable = round(array_sum(array_column($expected, 'total_amount')), 2);
+            $totalInterest = round(array_sum(array_column($expected, 'interest_amount')), 2);
+
+            $loanModel->update($loan['guid'], [
+                'total_interest' => $totalInterest,
+                'total_payable' => $totalPayable,
+                'outstanding_balance' => $totalPayable,
+                'next_due_date' => $expected[0]['due_date'] ?? null,
+                'status' => 'active',
+                'closed_at' => null,
+            ]);
+
+            $loan['total_interest'] = $totalInterest;
+            $loan['total_payable'] = $totalPayable;
+            $loan['outstanding_balance'] = $totalPayable;
+            $loan['next_due_date'] = $expected[0]['due_date'] ?? ($loan['next_due_date'] ?? null);
+            $loan['status'] = 'active';
+
+            return $loan;
+        } catch (Throwable) {
+            return $loan;
+        }
+    }
+
+    private function loanScheduleNeedsSync(array $loan, array $existing, array $expected): bool
+    {
+        if (count($existing) !== count($expected)) {
+            return true;
+        }
+
+        $expectedTotalPayable = round(array_sum(array_column($expected, 'total_amount')), 2);
+        if ($this->moneyDiffers((float) ($loan['total_payable'] ?? 0), $expectedTotalPayable)) {
+            return true;
+        }
+
+        foreach ($expected as $index => $item) {
+            $current = $existing[$index] ?? null;
+            if ($current === null) {
+                return true;
+            }
+
+            if (
+                $this->moneyDiffers((float) ($current['principal_amount'] ?? 0), (float) $item['principal_amount'])
+                || $this->moneyDiffers((float) ($current['interest_amount'] ?? 0), (float) $item['interest_amount'])
+                || $this->moneyDiffers((float) ($current['total_amount'] ?? 0), (float) $item['total_amount'])
+                || $this->moneyDiffers((float) ($current['remaining_balance'] ?? 0), (float) $item['remaining_balance'])
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function moneyDiffers(float $left, float $right): bool
+    {
+        return abs(round($left, 2) - round($right, 2)) > 0.01;
+    }
+
+    private function buildDashboardChartBuckets(): array
+    {
+        $buckets = [];
+
+        for ($offset = 5; $offset >= 0; $offset--) {
+            $timestamp = strtotime('-' . $offset . ' month');
+            $key = date('Y-m', $timestamp);
+
+            $buckets[$key] = [
+                'label' => date('M Y', $timestamp),
+                'payments' => 0.0,
+                'overdue' => 0.0,
+                'loans' => 0.0,
+            ];
+        }
+
+        return $buckets;
+    }
+
+    private function resolveDashboardBucket(?string $date): ?string
+    {
+        if (empty($date)) {
+            return null;
+        }
+
+        $timestamp = strtotime($date);
+        if ($timestamp === false) {
+            return null;
+        }
+
+        $bucket = date('Y-m', $timestamp);
+        $allowedBuckets = array_keys($this->buildDashboardChartBuckets());
+
+        return in_array($bucket, $allowedBuckets, true) ? $bucket : null;
     }
 
     private function fallbackData(): array

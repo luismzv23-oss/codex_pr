@@ -6,7 +6,7 @@ class AmortizationService
 {
     public function calculateFrench(float $amount, float $rate, int $terms): array
     {
-        $periodRate = $this->ratePerPeriod($rate);
+        $periodRate = $this->normalizeMonthlyRate($rate);
         if ($terms <= 0) {
             return [];
         }
@@ -59,7 +59,7 @@ class AmortizationService
 
     public function calculateGerman(float $amount, float $rate, int $terms): array
     {
-        $periodRate = $this->ratePerPeriod($rate);
+        $periodRate = $this->normalizeMonthlyRate($rate);
         if ($terms <= 0) {
             return [];
         }
@@ -88,7 +88,7 @@ class AmortizationService
 
     public function calculateAmerican(float $amount, float $rate, int $terms): array
     {
-        $periodRate = $this->ratePerPeriod($rate);
+        $periodRate = $this->normalizeMonthlyRate($rate);
         if ($terms <= 0) {
             return [];
         }
@@ -142,8 +142,8 @@ class AmortizationService
         return $this->generateSchedule($loan);
     }
 
-    private function ratePerPeriod(float $rate): float
+    private function normalizeMonthlyRate(float $rate): float
     {
-        return $rate > 1 ? ($rate / 100 / 12) : ($rate / 12);
+        return $rate > 1 ? ($rate / 100) : $rate;
     }
 }

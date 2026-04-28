@@ -32,10 +32,16 @@ class LoanApplicationController extends BaseController
 
     public function create()
     {
+        $selectedCustomerGuid = trim((string) $this->request->getGet('customer_guid'));
+        $selectedCustomer = $selectedCustomerGuid !== ''
+            ? $this->repository->getCustomer($selectedCustomerGuid)
+            : null;
+
         return view('loan_applications/create', [
             'title' => 'Nueva solicitud',
             'customers' => $this->repository->getCustomers(),
             'systems' => $this->repository->getAmortizationSystems(true),
+            'selectedCustomer' => $selectedCustomer,
         ]);
     }
 
@@ -48,6 +54,7 @@ class LoanApplicationController extends BaseController
             'interest_rate',
             'term_months',
             'amortization_type',
+            'source_customer_guid',
         ]);
         $payload['status'] = 'draft';
 
@@ -64,6 +71,11 @@ class LoanApplicationController extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
+        $sourceCustomerGuid = trim((string) ($payload['source_customer_guid'] ?? ''));
+        if ($sourceCustomerGuid !== '' && $sourceCustomerGuid !== (string) $payload['customer_guid']) {
+            return redirect()->back()->withInput()->with('errors', ['La solicitud debe mantenerse asociada al cliente de origen.']);
+        }
+
         $selectedSystem = $this->repository->findAmortizationSystemByCode((string) $payload['amortization_type']);
         if ($selectedSystem === null || ($selectedSystem['status'] ?? 'disabled') !== 'active') {
             return redirect()->back()->withInput()->with('errors', ['Debes seleccionar un sistema de amortizacion activo y valido.']);
@@ -71,6 +83,7 @@ class LoanApplicationController extends BaseController
 
         $payload['interest_rate'] = round(((float) $payload['interest_rate']) / 100, 4);
         $payload['amortization_type'] = strtolower(trim((string) $payload['amortization_type']));
+        unset($payload['source_customer_guid']);
 
         $saved = $this->repository->saveApplication($payload);
 

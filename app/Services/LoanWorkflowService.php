@@ -170,6 +170,23 @@ class LoanWorkflowService
             throw new DatabaseException('El prestamo no existe.');
         }
 
+        $installments = $installmentModel->where('loan_guid', $loanGuid)->findAll();
+        $isPaidOff = (string) $loan->status === 'paid_off'
+            || round((float) $loan->outstanding_balance, 2) <= 0;
+
+        if (! $isPaidOff && $installments !== []) {
+            $isPaidOff = array_reduce($installments, static function (bool $carry, object $installment): bool {
+                $totalAmount = round((float) $installment->total_amount + (float) $installment->late_fee, 2);
+                $paidAmount = round((float) $installment->paid_amount, 2);
+
+                return $carry && $paidAmount >= $totalAmount;
+            }, true);
+        }
+
+        if ($isPaidOff) {
+            throw new DatabaseException('Los prestamos cancelados en su totalidad no pueden eliminarse del sistema.');
+        }
+
         $db->transStart();
 
         $payments = $paymentModel->where('loan_guid', $loanGuid)->findAll();
@@ -178,7 +195,6 @@ class LoanWorkflowService
         }
         $paymentModel->where('loan_guid', $loanGuid)->delete(null, true);
 
-        $installments = $installmentModel->where('loan_guid', $loanGuid)->findAll();
         foreach ($installments as $installment) {
             $auditModel->where('entity_type', 'installment')->where('entity_guid', $installment->guid)->delete();
         }

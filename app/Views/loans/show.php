@@ -24,6 +24,7 @@
             <?php break; ?>
         <?php endif; ?>
     <?php endforeach; ?>
+    <?php $canDeleteLoan = ($loan['status'] ?? '') !== 'paid_off' && (float) ($loan['outstanding_balance'] ?? 0) > 0; ?>
 
     <div class="rounded-[2rem] bg-gradient-to-br from-emerald-700 via-teal-800 to-slate-950 p-8 text-white">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -80,9 +81,11 @@
                 <a href="/prestamos/<?= esc($loan['guid']) ?>/estado-cuenta" class="icon-action <?= icon_button_classes('sky') ?>" title="Estado de cuenta" aria-label="Estado de cuenta">
                     <?= app_icon('statement') ?>
                 </a>
-                <button type="button" class="icon-action <?= icon_button_classes('rose') ?>" title="Eliminar prestamo" aria-label="Eliminar prestamo" @click="deleteModal = true">
-                    <?= app_icon('reject') ?>
-                </button>
+                <?php if ($canDeleteLoan): ?>
+                    <button type="button" class="icon-action <?= icon_button_classes('rose') ?>" title="Eliminar prestamo" aria-label="Eliminar prestamo" @click="deleteModal = true">
+                        <?= app_icon('reject') ?>
+                    </button>
+                <?php endif; ?>
             </div>
         </div>
 
