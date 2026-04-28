@@ -49,6 +49,81 @@ if (! function_exists('amortization_system_label')) {
     }
 }
 
+if (! function_exists('customer_initials')) {
+    function customer_initials(?string $fullName): string
+    {
+        $parts = preg_split('/\s+/', trim((string) $fullName)) ?: [];
+        $parts = array_values(array_filter($parts, static fn(string $item): bool => $item !== ''));
+
+        if ($parts === []) {
+            return 'CL';
+        }
+
+        $first = $parts[0];
+        $last = $parts[count($parts) - 1];
+
+        if (count($parts) === 1) {
+            return strtoupper(substr($first, 0, 2));
+        }
+
+        return strtoupper(substr($first, 0, 1) . substr($last, 0, 1));
+    }
+}
+
+if (! function_exists('loan_alias')) {
+    function loan_alias(int $sequence, ?string $customerName): string
+    {
+        return sprintf('PS-%03d-%s', $sequence, customer_initials($customerName));
+    }
+}
+
+if (! function_exists('code39_svg')) {
+    function code39_svg(string $value, int $height = 54, int $narrow = 2, int $wide = 5, int $gap = 2): string
+    {
+        $patterns = [
+            '0' => 'nnnwwnwnn', '1' => 'wnnwnnnnw', '2' => 'nnwwnnnnw', '3' => 'wnwwnnnnn',
+            '4' => 'nnnwwnnnw', '5' => 'wnnwwnnnn', '6' => 'nnwwwnnnn', '7' => 'nnnwnnwnw',
+            '8' => 'wnnwnnwnn', '9' => 'nnwwnnwnn', 'A' => 'wnnnnwnnw', 'B' => 'nnwnnwnnw',
+            'C' => 'wnwnnwnnn', 'D' => 'nnnnwwnnw', 'E' => 'wnnnwwnnn', 'F' => 'nnwnwwnnn',
+            'G' => 'nnnnnwwnw', 'H' => 'wnnnnwwnn', 'I' => 'nnwnnwwnn', 'J' => 'nnnnwwwnn',
+            'K' => 'wnnnnnnww', 'L' => 'nnwnnnnww', 'M' => 'wnwnnnnwn', 'N' => 'nnnnwnnww',
+            'O' => 'wnnnwnnwn', 'P' => 'nnwnwnnwn', 'Q' => 'nnnnnnwww', 'R' => 'wnnnnnwwn',
+            'S' => 'nnwnnnwwn', 'T' => 'nnnnwnwwn', 'U' => 'wwnnnnnnw', 'V' => 'nwwnnnnnw',
+            'W' => 'wwwnnnnnn', 'X' => 'nwnnwnnnw', 'Y' => 'wwnnwnnnn', 'Z' => 'nwwnwnnnn',
+            '-' => 'nwnnnnwnw', '.' => 'wwnnnnwnn', ' ' => 'nwwnnnwnn', '$' => 'nwnwnwnnn',
+            '/' => 'nwnwnnnwn', '+' => 'nwnnnwnwn', '%' => 'nnnwnwnwn', '*' => 'nwnnwnwnn',
+        ];
+
+        $encoded = '*' . strtoupper(trim($value)) . '*';
+        $x = 10;
+        $bars = [];
+
+        foreach (str_split($encoded) as $char) {
+            if (! isset($patterns[$char])) {
+                $char = '-';
+            }
+
+            foreach (str_split($patterns[$char]) as $index => $type) {
+                $width = $type === 'w' ? $wide : $narrow;
+                if ($index % 2 === 0) {
+                    $bars[] = '<rect x="' . $x . '" y="6" width="' . $width . '" height="' . $height . '" fill="#0f172a"/>';
+                }
+                $x += $width;
+            }
+
+            $x += $gap;
+        }
+
+        $labelY = $height + 28;
+        $width = $x + 10;
+
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="' . $width . '" height="' . ($height + 36) . '" viewBox="0 0 ' . $width . ' ' . ($height + 36) . '">' .
+            implode('', $bars) .
+            '<text x="' . ($width / 2) . '" y="' . $labelY . '" text-anchor="middle" font-family="monospace" font-size="14" fill="#0f172a">' . esc($encoded) . '</text>' .
+            '</svg>';
+    }
+}
+
 if (! function_exists('status_badge')) {
     function status_badge(?string $status): string
     {
@@ -126,6 +201,7 @@ if (! function_exists('app_icon')) {
             'statement' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 4.75h10A1.25 1.25 0 0118.25 6v12A1.25 1.25 0 0117 19.25H7A1.25 1.25 0 015.75 18V6A1.25 1.25 0 017 4.75z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8.5 9.25h7M8.5 12h7M8.5 14.75h4.5"/>',
             'disable' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 9l6 6M15 9l-6 6"/><circle cx="12" cy="12" r="8" stroke-width="1.8"/>',
             'delete' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 4.75h6m-8 3h10m-8.25 0v8.5m4.5-8.5v8.5m4.5-8.5v8.5M8 19.25h8A1.75 1.75 0 0017.75 17.5v-9.75h-11.5v9.75A1.75 1.75 0 008 19.25z"/>',
+            'pdf' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zm0 0v5h5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8.5 13h2.5a1.5 1.5 0 010 3H8.5v-6H11a1.5 1.5 0 010 3H8.5m6-3h2m-2 0v6m0-3h1.5"/>',
         ];
 
         $path = $icons[$name] ?? $icons['view'];

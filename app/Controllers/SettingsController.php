@@ -204,12 +204,135 @@ class SettingsController extends BaseController
         return redirect()->to('/configuracion/amortizacion')->with('message', $saved ? 'Sistema eliminado.' : 'No se pudo eliminar el sistema.');
     }
 
+    public function collectionMethods()
+    {
+        return view('settings/collections/index', [
+            'title' => 'Cobros',
+            'methods' => $this->repository->getCollectionMethods(),
+        ]);
+    }
+
+    public function createCollectionMethod()
+    {
+        return view('settings/collections/create', [
+            'title' => 'Nuevo cobro',
+        ]);
+    }
+
+    public function storeCollectionMethod()
+    {
+        $payload = $this->normalizeCollectionMethodPayload($this->request->getPost([
+            'name',
+            'cuit',
+            'cbu',
+            'account_alias',
+            'entity',
+            'status',
+        ]));
+
+        $rules = [
+            'name' => 'required|min_length[3]|max_length[120]',
+            'cuit' => 'required|min_length[11]|max_length[20]',
+            'cbu' => 'required|min_length[10]|max_length[32]',
+            'account_alias' => 'required|min_length[3]|max_length[120]',
+            'entity' => 'required|min_length[3]|max_length[120]',
+            'status' => 'required|in_list[active,disabled]',
+        ];
+
+        if (! $this->validate($rules)) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        $saved = $this->repository->saveCollectionMethod($payload);
+
+        return redirect()->to('/configuracion/cobros')->with('message', $saved ? 'Forma de cobro guardada.' : 'No se pudo guardar la forma de cobro.');
+    }
+
+    public function editCollectionMethod($id)
+    {
+        $method = $this->repository->getCollectionMethod($id);
+        if ($method === null) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound('Forma de cobro no encontrada');
+        }
+
+        return view('settings/collections/edit', [
+            'title' => 'Editar cobro',
+            'method' => $method,
+        ]);
+    }
+
+    public function updateCollectionMethod($id)
+    {
+        $method = $this->repository->getCollectionMethod($id);
+        if ($method === null) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound('Forma de cobro no encontrada');
+        }
+
+        $payload = $this->normalizeCollectionMethodPayload($this->request->getPost([
+            'name',
+            'cuit',
+            'cbu',
+            'account_alias',
+            'entity',
+            'status',
+        ]));
+        $payload['guid'] = (string) $id;
+
+        $rules = [
+            'name' => 'required|min_length[3]|max_length[120]',
+            'cuit' => 'required|min_length[11]|max_length[20]',
+            'cbu' => 'required|min_length[10]|max_length[32]',
+            'account_alias' => 'required|min_length[3]|max_length[120]',
+            'entity' => 'required|min_length[3]|max_length[120]',
+            'status' => 'required|in_list[active,disabled]',
+        ];
+
+        if (! $this->validate($rules)) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        $saved = $this->repository->saveCollectionMethod($payload);
+
+        return redirect()->to('/configuracion/cobros')->with('message', $saved ? 'Forma de cobro actualizada.' : 'No se pudo actualizar la forma de cobro.');
+    }
+
+    public function toggleCollectionMethod($id)
+    {
+        $method = $this->repository->getCollectionMethod((string) $id);
+        if ($method === null) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound('Forma de cobro no encontrada');
+        }
+
+        $saved = $this->repository->toggleCollectionMethod((string) $id);
+
+        return redirect()->to('/configuracion/cobros')->with('message', $saved ? 'Estado de la forma de cobro actualizado.' : 'No se pudo actualizar la forma de cobro.');
+    }
+
+    public function deleteCollectionMethod($id)
+    {
+        $saved = $this->repository->deleteCollectionMethod((string) $id);
+
+        return redirect()->to('/configuracion/cobros')->with('message', $saved ? 'Forma de cobro eliminada.' : 'No se pudo eliminar la forma de cobro.');
+    }
+
     private function normalizeAmortizationPayload(array $payload): array
     {
         $payload['code'] = strtolower(trim((string) ($payload['code'] ?? '')));
         $payload['name'] = trim((string) ($payload['name'] ?? ''));
         $description = trim((string) ($payload['description'] ?? ''));
         $payload['description'] = $description === '' ? null : $description;
+        $payload['status'] = (string) ($payload['status'] ?? 'active');
+
+        return $payload;
+    }
+
+    private function normalizeCollectionMethodPayload(array $payload): array
+    {
+        $payload['name'] = trim((string) ($payload['name'] ?? ''));
+        $payload['cuit'] = preg_replace('/\s+/', '', trim((string) ($payload['cuit'] ?? ''))) ?? '';
+        $payload['cbu'] = preg_replace('/\s+/', '', trim((string) ($payload['cbu'] ?? ''))) ?? '';
+        $payload['account_alias'] = trim((string) ($payload['account_alias'] ?? ''));
+        $payload['entity'] = trim((string) ($payload['entity'] ?? ''));
         $payload['status'] = (string) ($payload['status'] ?? 'active');
 
         return $payload;

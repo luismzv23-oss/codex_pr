@@ -14,6 +14,7 @@
         "codeigniter4/framework": "4.3.8",
         "codeigniter4/shield": "1.0.0-beta.8",
         "codeigniter4/translations": "^4.4",
+        "dompdf/dompdf": "3.1",
         "michalsn/codeigniter4-uuid": "1.0.0"
     },
     "require-dev": {

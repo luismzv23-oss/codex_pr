@@ -3,11 +3,14 @@
 namespace App\Services;
 
 use App\Models\AuditLogModel;
+use App\Models\CollectionMethodModel;
+use App\Models\CustomerModel;
 use App\Models\InstallmentModel;
 use App\Models\LoanApplicationModel;
 use App\Models\LoanModel;
 use App\Models\NotificationModel;
 use App\Models\PaymentModel;
+use App\Support\AppRepository;
 use CodeIgniter\Database\Exceptions\DatabaseException;
 use Config\Database;
 
@@ -127,6 +130,36 @@ class LoanWorkflowService
 
         if ($db->transStatus() === false) {
             throw new DatabaseException('No se pudo aprobar la solicitud.');
+        }
+
+        try {
+            $repository = new AppRepository();
+            $customer = (new CustomerModel())->asArray()->find($application->customer_guid);
+            $applicationData = method_exists($application, 'toRawArray') ? $application->toRawArray() : (array) $application;
+            $loanData = $repository->getLoan($loan->guid) ?? (method_exists($loan, 'toRawArray') ? $loan->toRawArray() : (array) $loan);
+
+            $collections = [];
+            try {
+                $collections = array_values(array_filter(
+                    (new CollectionMethodModel())->asArray()->findAll(),
+                    static fn(array $item): bool => ($item['status'] ?? 'active') === 'active'
+                ));
+            } catch (\Throwable) {
+                $collections = [];
+            }
+
+            $pdf = (new PdfDocumentService())->render('pdf/contract', [
+                'title' => 'Contrato de prestamo',
+                'loan' => $loanData,
+                'application' => $applicationData,
+                'customer' => $customer,
+                'installments' => $schedule,
+                'collectionMethods' => $collections,
+            ]);
+
+            (new PdfDocumentService())->saveContract($loan->guid, $pdf);
+        } catch (\Throwable) {
+            // No interrumpe la aprobacion si el PDF del contrato falla.
         }
 
         return [

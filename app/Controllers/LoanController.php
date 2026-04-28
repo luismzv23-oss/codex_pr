@@ -44,11 +44,24 @@ class LoanController extends BaseController
         }
 
         $statusFilter = $this->request->getGet('estado') ?: 'all';
+        $selectedLoanGuid = $this->request->getGet('prestamo') ?: $loan['guid'];
+        $customerLoans = $this->repository->getCustomerLoans($loan['customer_guid']);
+        $installments = $this->repository->getCustomerInstallments($loan['customer_guid'], $statusFilter, $selectedLoanGuid);
+
+        $summaryInstallments = $this->repository->getCustomerInstallments($loan['customer_guid'], 'all', $selectedLoanGuid);
 
         return view('loans/amortization', [
             'title' => 'Amortizacion',
             'loan' => $loan,
-            'installments' => $this->repository->getCustomerInstallments($loan['customer_guid'], $statusFilter),
+            'installments' => $installments,
+            'customerLoans' => $customerLoans,
+            'selectedLoanGuid' => $selectedLoanGuid,
+            'summary' => [
+                'total' => count($summaryInstallments),
+                'paid' => count(array_filter($summaryInstallments, static fn(array $item): bool => $item['status'] === 'paid')),
+                'pending_partial' => count(array_filter($summaryInstallments, static fn(array $item): bool => in_array($item['status'], ['pending', 'partial'], true))),
+                'overdue' => count(array_filter($summaryInstallments, static fn(array $item): bool => $item['status'] === 'overdue')),
+            ],
             'statusFilter' => $statusFilter,
         ]);
     }

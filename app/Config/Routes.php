@@ -66,6 +66,12 @@ $routes->group('prestamos', ['filter' => 'session'], static function($routes) {
     $routes->get('(:segment)', 'LoanController::show/$1');
     $routes->get('(:segment)/amortizacion', 'LoanController::amortization/$1');
     $routes->get('(:segment)/estado-cuenta', 'LoanController::statement/$1');
+    $routes->get('(:segment)/pdf', 'LoanDocumentController::loan/$1');
+    $routes->get('(:segment)/amortizacion/pdf', 'LoanDocumentController::amortization/$1');
+    $routes->get('(:segment)/estado-cuenta/pdf', 'LoanDocumentController::statement/$1');
+    $routes->get('(:segment)/contrato/pdf', 'LoanDocumentController::contract/$1');
+    $routes->get('(:segment)/libre-deuda/pdf', 'LoanDocumentController::clearance/$1');
+    $routes->get('(:segment)/cuotas/(:segment)/pdf', 'LoanDocumentController::installment/$1/$2');
     $routes->post('(:segment)/eliminar', 'LoanController::delete/$1');
 });
 
@@ -103,6 +109,16 @@ $routes->group('configuracion', ['filter' => 'session'], static function($routes
         $routes->put('(:segment)', 'SettingsController::updateAmortizationSystem/$1');
         $routes->post('(:segment)/toggle', 'SettingsController::toggleAmortizationSystem/$1');
         $routes->delete('(:segment)', 'SettingsController::deleteAmortizationSystem/$1');
+    });
+
+    $routes->group('cobros', static function($routes) {
+        $routes->get('/', 'SettingsController::collectionMethods');
+        $routes->get('crear', 'SettingsController::createCollectionMethod');
+        $routes->post('guardar', 'SettingsController::storeCollectionMethod');
+        $routes->get('(:segment)/editar', 'SettingsController::editCollectionMethod/$1');
+        $routes->put('(:segment)', 'SettingsController::updateCollectionMethod/$1');
+        $routes->post('(:segment)/toggle', 'SettingsController::toggleCollectionMethod/$1');
+        $routes->delete('(:segment)', 'SettingsController::deleteCollectionMethod/$1');
     });
 });
 

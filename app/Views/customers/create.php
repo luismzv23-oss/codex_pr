@@ -78,10 +78,10 @@
                         <?php endforeach; ?>
                     </select>
                 </label>
-                <label class="space-y-2">
+                <div class="space-y-2">
                     <span class="text-sm font-medium">Score de riesgo</span>
-                    <input name="risk_score" value="<?= old('risk_score', '0') ?>" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
-                </label>
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">Se calcula automaticamente en escala de 0 a 10 segun la confiabilidad de pagos del cliente.</div>
+                </div>
                 <label class="space-y-2 md:col-span-2 xl:col-span-3">
                     <span class="text-sm font-medium">Notas</span>
                     <textarea name="notes" rows="4" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"><?= old('notes') ?></textarea>

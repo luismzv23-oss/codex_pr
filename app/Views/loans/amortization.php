@@ -8,6 +8,9 @@
             <p class="mt-2 text-sm text-slate-500 dark:text-slate-400"><?= esc($loan['customer_name']) ?> - <?= esc(money($loan['principal_amount'], $loan['currency'])) ?></p>
         </div>
         <div class="flex items-center gap-2">
+            <a href="/prestamos/<?= esc($loan['guid']) ?>/amortizacion/pdf" class="icon-action <?= icon_button_classes('ghost') ?>" title="Descargar cronograma PDF" aria-label="Descargar cronograma PDF">
+                <?= app_icon('pdf') ?>
+            </a>
             <a href="/prestamos/<?= esc($loan['guid']) ?>/estado-cuenta" class="icon-action <?= icon_button_classes('sky') ?>" title="Estado de cuenta" aria-label="Estado de cuenta">
                 <?= app_icon('statement') ?>
             </a>
@@ -18,24 +21,35 @@
     <div class="grid gap-4 md:grid-cols-4">
         <div class="glass-card p-5">
             <p class="text-sm text-slate-500 dark:text-slate-400">Cuotas del cliente</p>
-            <p class="mt-3 text-3xl font-semibold"><?= count($installments) ?></p>
+            <p class="mt-3 text-3xl font-semibold"><?= esc($summary['total']) ?></p>
         </div>
         <div class="glass-card p-5">
             <p class="text-sm text-slate-500 dark:text-slate-400">Pagadas</p>
-            <p class="mt-3 text-3xl font-semibold"><?= count(array_filter($installments, static fn(array $item): bool => $item['status'] === 'paid')) ?></p>
+            <p class="mt-3 text-3xl font-semibold"><?= esc($summary['paid']) ?></p>
         </div>
         <div class="glass-card p-5">
             <p class="text-sm text-slate-500 dark:text-slate-400">Pendientes / Parciales</p>
-            <p class="mt-3 text-3xl font-semibold"><?= count(array_filter($installments, static fn(array $item): bool => in_array($item['status'], ['pending', 'partial'], true))) ?></p>
+            <p class="mt-3 text-3xl font-semibold"><?= esc($summary['pending_partial']) ?></p>
         </div>
         <div class="glass-card p-5">
             <p class="text-sm text-slate-500 dark:text-slate-400">En mora</p>
-            <p class="mt-3 text-3xl font-semibold"><?= count(array_filter($installments, static fn(array $item): bool => $item['status'] === 'overdue')) ?></p>
+            <p class="mt-3 text-3xl font-semibold"><?= esc($summary['overdue']) ?></p>
         </div>
     </div>
 
     <div class="glass-card p-5">
-        <form method="get" class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <form method="get" class="grid gap-4 xl:grid-cols-[1fr,1fr,auto] xl:items-end">
+            <label class="space-y-2">
+                <span class="text-sm font-medium text-slate-900 dark:text-white">Prestamo</span>
+                <select name="prestamo" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                    <option value="all" <?= $selectedLoanGuid === 'all' ? 'selected' : '' ?>>Todos los prestamos</option>
+                    <?php foreach ($customerLoans as $customerLoan): ?>
+                        <option value="<?= esc($customerLoan['guid']) ?>" <?= $selectedLoanGuid === $customerLoan['guid'] ? 'selected' : '' ?>>
+                            <?= esc($customerLoan['alias']) ?> - <?= esc(money($customerLoan['principal_amount'], $customerLoan['currency'])) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
             <div class="space-y-2">
                 <p class="text-sm font-medium text-slate-900 dark:text-white">Filtrar estado</p>
                 <div class="flex flex-wrap gap-2">
@@ -53,8 +67,14 @@
                     <?php endforeach; ?>
                 </div>
             </div>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Se muestran todas las cuotas del cliente vinculadas a sus prestamos.</p>
+            <div class="flex items-center justify-start xl:justify-end">
+                <button type="submit" class="inline-flex items-center gap-2 rounded-2xl border <?= icon_button_classes('dark') ?> px-4 py-3 text-sm font-medium">
+                    <?= app_icon('filter', 'h-4 w-4') ?>
+                    <span>Aplicar</span>
+                </button>
+            </div>
         </form>
+        <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">Se muestran las cuotas del cliente segun el prestamo seleccionado. El alias usa el formato `PS-###-INICIALES`.</p>
     </div>
 
     <div class="glass-card overflow-hidden p-2">

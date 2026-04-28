@@ -58,6 +58,7 @@
             <div x-show="open" x-cloak class="mt-2 space-y-1 pl-12">
                 <a href="/configuracion/usuarios" class="block rounded-xl px-3 py-2 text-slate-400 transition hover:bg-slate-800 hover:text-white">Usuarios</a>
                 <a href="/configuracion/amortizacion" class="block rounded-xl px-3 py-2 text-slate-400 transition hover:bg-slate-800 hover:text-white">Sistemas de amortizacion</a>
+                <a href="/configuracion/cobros" class="block rounded-xl px-3 py-2 text-slate-400 transition hover:bg-slate-800 hover:text-white">Cobros</a>
             </div>
         </div>
     </nav>

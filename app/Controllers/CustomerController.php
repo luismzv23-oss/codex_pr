@@ -110,7 +110,6 @@ class CustomerController extends BaseController
             'credit_limit_mode',
             'credit_status',
             'kyc_status',
-            'risk_score',
             'notes',
         ]);
 
@@ -150,7 +149,6 @@ class CustomerController extends BaseController
             'credit_limit_mode' => 'required|in_list[manual,automatic]',
             'credit_status' => 'required|in_list[active,restricted]',
             'kyc_status' => 'required|in_list[pending,verified,rejected]',
-            'risk_score' => 'permit_empty|decimal',
         ];
     }
 }

@@ -7,7 +7,12 @@
             <h1 class="text-3xl font-semibold text-slate-900 dark:text-white">Estado de cuenta</h1>
             <p class="mt-2 text-sm text-slate-500 dark:text-slate-400"><?= esc($statement['customer']['full_name']) ?> - <?= esc($statement['loan']['guid']) ?></p>
         </div>
-        <a href="/prestamos/<?= esc($statement['loan']['guid']) ?>" class="text-sm text-slate-500 hover:text-slate-800 dark:hover:text-white">Volver al prestamo</a>
+        <div class="flex items-center gap-2">
+            <a href="/prestamos/<?= esc($statement['loan']['guid']) ?>/estado-cuenta/pdf" class="icon-action <?= icon_button_classes('ghost') ?>" title="Descargar estado de cuenta PDF" aria-label="Descargar estado de cuenta PDF">
+                <?= app_icon('pdf') ?>
+            </a>
+            <a href="/prestamos/<?= esc($statement['loan']['guid']) ?>" class="text-sm text-slate-500 hover:text-slate-800 dark:hover:text-white">Volver al prestamo</a>
+        </div>
     </div>
 
     <div class="grid gap-4 md:grid-cols-4">

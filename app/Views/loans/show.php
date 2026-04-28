@@ -35,9 +35,20 @@
             </div>
             <div class="flex gap-3">
                 <span class="inline-flex rounded-full px-4 py-2 text-sm font-medium <?= esc(status_badge($loan['status'])) ?>"><?= esc(status_label($loan['status'])) ?></span>
+                <a href="/prestamos/<?= esc($loan['guid']) ?>/pdf" class="icon-action border-white/20 bg-white/10 text-white hover:bg-white/20" title="Descargar PDF del prestamo" aria-label="Descargar PDF del prestamo">
+                    <?= app_icon('pdf') ?>
+                </a>
+                <a href="/prestamos/<?= esc($loan['guid']) ?>/contrato/pdf" class="icon-action border-white/20 bg-white/10 text-white hover:bg-white/20" title="Descargar contrato" aria-label="Descargar contrato">
+                    <?= app_icon('statement') ?>
+                </a>
                 <a href="/prestamos/<?= esc($loan['guid']) ?>/amortizacion" class="icon-action border-white/20 bg-white/10 text-white hover:bg-white/20" title="Ver cronograma" aria-label="Ver cronograma">
                     <?= app_icon('chart') ?>
                 </a>
+                <?php if (($loan['status'] ?? '') === 'paid_off' || round((float) ($loan['outstanding_balance'] ?? 0), 2) <= 0): ?>
+                    <a href="/prestamos/<?= esc($loan['guid']) ?>/libre-deuda/pdf" class="icon-action border-white/20 bg-white/10 text-white hover:bg-white/20" title="Descargar libre deuda" aria-label="Descargar libre deuda">
+                        <?= app_icon('approve') ?>
+                    </a>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -80,6 +91,9 @@
                 </button>
                 <a href="/prestamos/<?= esc($loan['guid']) ?>/estado-cuenta" class="icon-action <?= icon_button_classes('sky') ?>" title="Estado de cuenta" aria-label="Estado de cuenta">
                     <?= app_icon('statement') ?>
+                </a>
+                <a href="/prestamos/<?= esc($loan['guid']) ?>/amortizacion/pdf" class="icon-action <?= icon_button_classes('ghost') ?>" title="Descargar cronograma PDF" aria-label="Descargar cronograma PDF">
+                    <?= app_icon('pdf') ?>
                 </a>
                 <?php if ($canDeleteLoan): ?>
                     <button type="button" class="icon-action <?= icon_button_classes('rose') ?>" title="Eliminar prestamo" aria-label="Eliminar prestamo" @click="deleteModal = true">
@@ -128,8 +142,16 @@
                                                     })">
                                                 <?= app_icon('cash') ?>
                                             </button>
+                                            <a href="/prestamos/<?= esc($loan['guid']) ?>/cuotas/<?= esc($item['guid']) ?>/pdf" class="icon-action <?= icon_button_classes('ghost') ?>" title="Descargar cuota PDF" aria-label="Descargar cuota PDF">
+                                                <?= app_icon('pdf') ?>
+                                            </a>
                                         <?php else: ?>
-                                            <span class="text-xs text-slate-400"><?= $item['status'] === 'paid' ? 'Pagada' : 'Esperando cuota previa' ?></span>
+                                            <div class="flex items-center gap-2">
+                                                <a href="/prestamos/<?= esc($loan['guid']) ?>/cuotas/<?= esc($item['guid']) ?>/pdf" class="icon-action <?= icon_button_classes('ghost') ?>" title="Descargar cuota PDF" aria-label="Descargar cuota PDF">
+                                                    <?= app_icon('pdf') ?>
+                                                </a>
+                                                <span class="text-xs text-slate-400"><?= $item['status'] === 'paid' ? 'Pagada' : 'Esperando cuota previa' ?></span>
+                                            </div>
                                         <?php endif; ?>
                                     </div>
                                 </td>
@@ -164,6 +186,7 @@
                             </div>
                         </div>
                         <div class="mt-4 flex justify-end">
+                            <div class="flex gap-2">
                             <?php if (! empty($item['can_generate_payment'])): ?>
                                 <button type="button"
                                         class="icon-action <?= icon_button_classes('emerald') ?>"
@@ -178,10 +201,15 @@
                                         })">
                                     <?= app_icon('cash') ?>
                                 </button>
-                            <?php else: ?>
-                                <span class="text-xs text-slate-400"><?= $item['status'] === 'paid' ? 'Pagada' : 'Esperando cuota previa' ?></span>
                             <?php endif; ?>
+                                <a href="/prestamos/<?= esc($loan['guid']) ?>/cuotas/<?= esc($item['guid']) ?>/pdf" class="icon-action <?= icon_button_classes('ghost') ?>" title="Descargar cuota PDF" aria-label="Descargar cuota PDF">
+                                    <?= app_icon('pdf') ?>
+                                </a>
+                            </div>
                         </div>
+                        <?php if (empty($item['can_generate_payment'])): ?>
+                            <p class="mt-3 text-right text-xs text-slate-400"><?= $item['status'] === 'paid' ? 'Pagada' : 'Esperando cuota previa' ?></p>
+                        <?php endif; ?>
                     </article>
                 <?php endforeach; ?>
             </div>

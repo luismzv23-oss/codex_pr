@@ -36,7 +36,7 @@
                 </div>
                 <div class="flex items-center justify-between">
                     <dt class="text-slate-500 dark:text-slate-400">Score de riesgo</dt>
-                    <dd><?= esc(number_format((float) $customer['risk_score'], 1)) ?></dd>
+                    <dd><?= esc(number_format((float) $customer['risk_score'], 1)) ?> / 10</dd>
                 </div>
                 <div class="flex items-center justify-between">
                     <dt class="text-slate-500 dark:text-slate-400">Alta</dt>
@@ -44,6 +44,7 @@
                 </div>
             </dl>
             <div class="mt-6 rounded-2xl bg-slate-100 p-4 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                <p class="mb-3"><strong>Indice de confiabilidad:</strong> este score se calcula automaticamente segun el compromiso de pago del cliente en sus prestamos y cuotas.</p>
                 <?= esc($customer['notes'] ?: 'Sin notas operativas cargadas.') ?>
             </div>
         </div>

@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\AmortizationSystemModel;
+use App\Models\CollectionMethodModel;
 use App\Models\AuditLogModel;
 use App\Models\CustomerModel;
 use App\Models\InstallmentModel;
@@ -110,6 +111,11 @@ class AppRepository
     {
         $customers = $this->safeFindAll(new CustomerModel(), 'customers');
 
+        foreach ($customers as &$customer) {
+            $customer['risk_score'] = $this->calculateCustomerReliabilityScore((string) ($customer['guid'] ?? ''));
+        }
+        unset($customer);
+
         usort($customers, static fn(array $a, array $b): int => strcmp($b['created_at'], $a['created_at']));
 
         return $customers;
@@ -186,8 +192,14 @@ class AppRepository
         $loans = $this->safeFindAll(new LoanModel(), 'loans');
         $customers = $this->getCustomersIndexed();
 
-        foreach ($loans as &$loan) {
+        usort($loans, static fn(array $a, array $b): int => strcmp(
+            (string) ($a['created_at'] ?? $a['disbursed_at'] ?? ''),
+            (string) ($b['created_at'] ?? $b['disbursed_at'] ?? '')
+        ));
+
+        foreach ($loans as $index => &$loan) {
             $loan['customer_name'] = $customers[$loan['customer_guid']]['full_name'] ?? 'Cliente no disponible';
+            $loan['alias'] = loan_alias($index + 1, $loan['customer_name']);
         }
         unset($loan);
 
@@ -271,11 +283,11 @@ class AppRepository
         return $installments;
     }
 
-    public function getCustomerInstallments(string $customerGuid, ?string $status = null): array
+    public function getCustomerInstallments(string $customerGuid, ?string $status = null, ?string $loanGuid = null): array
     {
         $loanGuids = array_column(array_filter(
             $this->getLoans(),
-            static fn(array $loan): bool => $loan['customer_guid'] === $customerGuid
+            static fn(array $loan): bool => $loan['customer_guid'] === $customerGuid && ($loanGuid === null || $loanGuid === 'all' || $loan['guid'] === $loanGuid)
         ), 'guid');
 
         $installments = array_values(array_filter($this->getInstallments(), static function (array $item) use ($loanGuids, $status): bool {
@@ -294,7 +306,7 @@ class AppRepository
         foreach ($installments as &$installment) {
             $loan = $loans[$installment['loan_guid']] ?? null;
             $installment['currency'] = $loan['currency'] ?? 'ARS';
-            $installment['loan_label'] = $loan['guid'] ?? $installment['loan_guid'];
+            $installment['loan_label'] = $loan['alias'] ?? ($loan['guid'] ?? $installment['loan_guid']);
         }
         unset($installment);
 
@@ -339,7 +351,7 @@ class AppRepository
         $customers = $this->getCustomersIndexed();
 
         foreach ($payments as &$payment) {
-            $payment['loan_label'] = $loans[$payment['loan_guid']]['guid'] ?? 'Prestamo';
+            $payment['loan_label'] = $loans[$payment['loan_guid']]['alias'] ?? ($loans[$payment['loan_guid']]['guid'] ?? 'Prestamo');
             $payment['customer_name'] = $customers[$payment['customer_guid']]['full_name'] ?? 'Cliente no disponible';
         }
         unset($payment);
@@ -435,6 +447,14 @@ class AppRepository
         );
 
         return round(array_sum(array_map(static fn(array $loan): float => (float) ($loan['outstanding_balance'] ?? 0), $loans)), 2);
+    }
+
+    public function getCustomerLoans(string $customerGuid): array
+    {
+        return array_values(array_filter(
+            $this->getLoans(),
+            static fn(array $loan): bool => $loan['customer_guid'] === $customerGuid
+        ));
     }
 
     public function getAmortizationSystems(bool $onlyActive = false): array
@@ -723,6 +743,107 @@ class AppRepository
         return count($this->getAmortizationSystems(true));
     }
 
+    public function getCollectionMethods(bool $onlyActive = false): array
+    {
+        try {
+            $methods = array_map([$this, 'normalize'], (new CollectionMethodModel())->asArray()->findAll());
+        } catch (Throwable) {
+            $methods = $this->fallbackData()['collection_methods'];
+        }
+
+        if ($onlyActive) {
+            $methods = array_values(array_filter($methods, static fn(array $item): bool => ($item['status'] ?? 'active') === 'active'));
+        }
+
+        usort($methods, static fn(array $a, array $b): int => strcmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? '')));
+
+        return $methods;
+    }
+
+    public function getCollectionMethod(string $guid): ?array
+    {
+        foreach ($this->getCollectionMethods() as $method) {
+            if (($method['guid'] ?? null) === $guid) {
+                return $method;
+            }
+        }
+
+        return null;
+    }
+
+    public function saveCollectionMethod(array $data): bool
+    {
+        try {
+            return (new CollectionMethodModel())->save($data);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    public function toggleCollectionMethod(string $guid): bool
+    {
+        try {
+            $model = new CollectionMethodModel();
+            $method = $model->find($guid);
+            if ($method === null) {
+                return false;
+            }
+
+            $method['status'] = ($method['status'] ?? 'active') === 'active' ? 'disabled' : 'active';
+
+            return $model->save($method);
+        } catch (Throwable) {
+            foreach ($this->fallbackData()['collection_methods'] as $method) {
+                if (($method['guid'] ?? null) === $guid) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public function deleteCollectionMethod(string $guid): bool
+    {
+        try {
+            return (bool) (new CollectionMethodModel())->delete($guid);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    public function getLoanPayments(string $loanGuid): array
+    {
+        return array_values(array_filter(
+            $this->getPayments(),
+            static fn(array $payment): bool => ($payment['loan_guid'] ?? null) === $loanGuid
+        ));
+    }
+
+    public function getInstallmentForLoan(string $loanGuid, string $installmentGuid): ?array
+    {
+        $installment = $this->getInstallment($installmentGuid);
+        if ($installment === null || ($installment['loan_guid'] ?? null) !== $loanGuid) {
+            return null;
+        }
+
+        $loan = $this->getLoan($loanGuid);
+        if ($loan === null) {
+            return null;
+        }
+
+        $customer = $this->getCustomer($loan['customer_guid']);
+        $installment['currency'] = $loan['currency'] ?? 'ARS';
+        $installment['loan_alias'] = $loan['alias'] ?? $loan['guid'];
+        $installment['amount_due'] = max(
+            0,
+            round(((float) ($installment['total_amount'] ?? 0) + (float) ($installment['late_fee'] ?? 0)) - (float) ($installment['paid_amount'] ?? 0), 2)
+        );
+        $installment['customer_name'] = $customer['full_name'] ?? 'Cliente no disponible';
+
+        return $installment;
+    }
+
     private function getCustomersIndexed(): array
     {
         $indexed = [];
@@ -967,6 +1088,80 @@ class AppRepository
     private function moneyDiffers(float $left, float $right): bool
     {
         return abs(round($left, 2) - round($right, 2)) > 0.01;
+    }
+
+    private function calculateCustomerReliabilityScore(string $customerGuid): float
+    {
+        if ($customerGuid === '') {
+            return 0.0;
+        }
+
+        $rawLoans = $this->safeFindAll(new LoanModel(), 'loans');
+        $rawInstallments = $this->safeFindAll(new InstallmentModel(), 'installments');
+
+        $loanGuids = array_column(array_filter(
+            $rawLoans,
+            static fn(array $loan): bool => ($loan['customer_guid'] ?? null) === $customerGuid
+        ), 'guid');
+
+        if ($loanGuids === []) {
+            return 5.0;
+        }
+
+        $installments = array_values(array_filter(
+            $rawInstallments,
+            static fn(array $item): bool => in_array($item['loan_guid'] ?? null, $loanGuids, true)
+        ));
+
+        if ($installments === []) {
+            return 5.0;
+        }
+
+        $weightedPoints = 0.0;
+
+        foreach ($installments as $item) {
+            $status = $this->normalizeInstallmentStatus($item);
+            $dueDate = ! empty($item['due_date']) ? strtotime((string) $item['due_date']) : false;
+            $isFuture = $dueDate !== false && $dueDate >= strtotime('today');
+
+            $weightedPoints += match ($status) {
+                'paid' => 1.0,
+                'pending' => $isFuture ? 0.9 : 0.35,
+                'partial' => 0.45,
+                'overdue' => 0.1,
+                default => 0.5,
+            };
+        }
+
+        $baseScore = 10 * ($weightedPoints / count($installments));
+
+        $loans = array_values(array_filter(
+            $rawLoans,
+            static fn(array $loan): bool => ($loan['customer_guid'] ?? null) === $customerGuid
+        ));
+
+        $paidOffLoans = count(array_filter(
+            $loans,
+            static fn(array $loan): bool => ($loan['status'] ?? '') === 'paid_off' || round((float) ($loan['outstanding_balance'] ?? 0), 2) <= 0
+        ));
+
+        $activeOverdueLoans = count(array_filter($loans, static function (array $loan) use ($installments): bool {
+            if (($loan['status'] ?? '') !== 'active') {
+                return false;
+            }
+
+            foreach ($installments as $item) {
+                if (($item['loan_guid'] ?? null) === ($loan['guid'] ?? null) && ($item['status'] ?? '') === 'overdue') {
+                    return true;
+                }
+            }
+
+            return false;
+        }));
+
+        $score = $baseScore + min(1.0, $paidOffLoans * 0.25) - min(2.0, $activeOverdueLoans * 0.4);
+
+        return max(0.0, min(10.0, round($score, 1)));
     }
 
     private function buildDashboardChartBuckets(): array
@@ -1283,6 +1478,28 @@ class AppRepository
                     'name' => 'Americano',
                     'description' => 'Interes periodico y capital al vencimiento.',
                     'status' => 'active',
+                ],
+            ],
+            'collection_methods' => [
+                [
+                    'guid' => 'col-demo-001',
+                    'name' => 'Transferencia principal',
+                    'cuit' => '20-12345678-9',
+                    'cbu' => '2850590940090418135201',
+                    'account_alias' => 'prestamos.centro.mp',
+                    'entity' => 'Mercado Pago',
+                    'status' => 'active',
+                    'created_at' => '2026-04-22 10:00:00',
+                ],
+                [
+                    'guid' => 'col-demo-002',
+                    'name' => 'Cuenta recaudadora',
+                    'cuit' => '30-70987654-1',
+                    'cbu' => '0720123456789012345678',
+                    'account_alias' => 'prestamos.sucursal.bbva',
+                    'entity' => 'BBVA Argentina',
+                    'status' => 'active',
+                    'created_at' => '2026-04-23 09:00:00',
                 ],
             ],
             'users' => [

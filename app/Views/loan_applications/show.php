@@ -43,10 +43,16 @@
             </dl>
 
             <?php if (! empty($application['linked_loan_guid'])): ?>
-                <a href="/prestamos/<?= esc($application['linked_loan_guid']) ?>" class="mt-6 inline-flex items-center gap-2 rounded-2xl border <?= icon_button_classes('sky') ?> px-4 py-3 text-sm font-medium">
-                    <?= app_icon('loan', 'h-4 w-4') ?>
-                    <span>Ver prestamo generado</span>
-                </a>
+                <div class="mt-6 flex flex-wrap gap-2">
+                    <a href="/prestamos/<?= esc($application['linked_loan_guid']) ?>" class="inline-flex items-center gap-2 rounded-2xl border <?= icon_button_classes('sky') ?> px-4 py-3 text-sm font-medium">
+                        <?= app_icon('loan', 'h-4 w-4') ?>
+                        <span>Ver prestamo generado</span>
+                    </a>
+                    <a href="/prestamos/<?= esc($application['linked_loan_guid']) ?>/contrato/pdf" class="inline-flex items-center gap-2 rounded-2xl border <?= icon_button_classes('ghost') ?> px-4 py-3 text-sm font-medium">
+                        <?= app_icon('pdf', 'h-4 w-4') ?>
+                        <span>Descargar contrato</span>
+                    </a>
+                </div>
             <?php endif; ?>
 
             <?php if (! empty($application['rejection_reason'])): ?>
