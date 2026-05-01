@@ -35,6 +35,10 @@
                         <p class="text-sm font-semibold"><?= auth()->user()->username ?? 'Usuario' ?></p>
                         <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Sesion activa</p>
                     </div>
+                    <a href="/perfil" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-700">
+                        <?= app_icon('users', 'h-4 w-4') ?>
+                        <span>Mi perfil</span>
+                    </a>
                     <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-sm text-rose-600 transition hover:bg-slate-50 dark:hover:bg-slate-700">
                         <?= app_icon('logout', 'h-4 w-4') ?>
                         <span>Cerrar sesion</span>

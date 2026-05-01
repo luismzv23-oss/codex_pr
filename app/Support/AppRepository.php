@@ -30,7 +30,7 @@ class AppRepository
         $overdueInstallments = array_values(array_filter($installments, static fn(array $item): bool => $item['status'] === 'overdue'));
         $pendingApplications = array_values(array_filter(
             $applications,
-            static fn(array $application): bool => in_array($application['status'], ['draft', 'evaluation', 'approved'], true)
+            static fn(array $application): bool => in_array($application['status'], ['draft', 'evaluation'], true)
         ));
 
         $chartBuckets = $this->buildDashboardChartBuckets();
@@ -212,7 +212,7 @@ class AppRepository
     {
         $statusMap = [
             'active' => ['active', 'defaulted', 'restructured'],
-            'cancelled' => ['paid_off'],
+            'cancelled' => ['paid', 'paid_off'],
         ];
 
         $allowedStatuses = $statusMap[$statusFilter] ?? $statusMap['active'];
@@ -595,11 +595,16 @@ class AppRepository
             $users = model(UserModel::class)->withIdentities()->findAll();
 
             return array_map(static function (User $user): array {
+                $groups = $user->getGroups() ?? [];
+                $role = in_array('admin', $groups, true) ? 'admin' : 'operator';
+
                 return [
                     'id' => $user->id,
                     'username' => $user->username,
                     'email' => $user->getEmail(),
                     'active' => (bool) $user->active,
+                    'role' => $role,
+                    'role_label' => $role === 'admin' ? 'Administrador' : 'Operador',
                     'created_at' => (string) $user->created_at,
                 ];
             }, $users);
@@ -637,7 +642,12 @@ class AppRepository
                     $user->password = $data['password'];
                 }
 
-                return $model->save($user);
+                $saved = $model->save($user);
+                if ($saved) {
+                    $user->syncGroups((string) ($data['role'] ?? 'operator'));
+                }
+
+                return $saved;
             }
 
             $user = new User([
@@ -647,7 +657,15 @@ class AppRepository
                 'active' => ! empty($data['active']) ? 1 : 0,
             ]);
 
-            return $model->save($user);
+            $saved = $model->save($user);
+            if ($saved) {
+                $createdUser = $model->findById($model->getInsertID());
+                if ($createdUser !== null) {
+                    $createdUser->addGroup((string) ($data['role'] ?? 'operator'));
+                }
+            }
+
+            return $saved;
         } catch (Throwable) {
             return false;
         }
@@ -1142,7 +1160,7 @@ class AppRepository
 
         $paidOffLoans = count(array_filter(
             $loans,
-            static fn(array $loan): bool => ($loan['status'] ?? '') === 'paid_off' || round((float) ($loan['outstanding_balance'] ?? 0), 2) <= 0
+            static fn(array $loan): bool => in_array(($loan['status'] ?? ''), ['paid', 'paid_off'], true) || round((float) ($loan['outstanding_balance'] ?? 0), 2) <= 0
         ));
 
         $activeOverdueLoans = count(array_filter($loans, static function (array $loan) use ($installments): bool {

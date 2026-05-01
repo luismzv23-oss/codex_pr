@@ -10,15 +10,22 @@ class RolesSeeder extends Seeder
 {
     public function run()
     {
-        // Shield automatically creates the tables, but we can seed the initial Superadmin here
+        // Shield automatically creates the tables, but we can seed the initial administrator here
         // if needed later. For the scaffold, we just leave the structure ready.
         
         $users = auth()->getProvider();
+        $existing = $users->where('username', 'admin')->first();
+
+        if ($existing !== null) {
+            $existing->syncGroups('admin');
+
+            return;
+        }
 
         $user = new User([
-            'username' => 'superadmin',
+            'username' => 'admin',
             'email'    => 'admin@fintech.local',
-            'password' => '12345678', // Contraseña fácil para pruebas iniciales
+            'password' => 'Admin12345', // Contraseña fácil para pruebas iniciales
             'active'   => 1,
         ]);
 
@@ -26,6 +33,6 @@ class RolesSeeder extends Seeder
         $user = $users->findById($users->getInsertID());
 
         // Assign the role
-        $user->addGroup('superadmin');
+        $user->addGroup('admin');
     }
 }

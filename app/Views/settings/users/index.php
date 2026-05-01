@@ -19,6 +19,7 @@
                     <tr class="text-left text-xs uppercase tracking-[0.25em] text-slate-500">
                         <th class="px-4 py-4">Usuario</th>
                         <th class="px-4 py-4">Email</th>
+                        <th class="px-4 py-4">Rol</th>
                         <th class="px-4 py-4">Estado</th>
                         <th class="px-4 py-4">Alta</th>
                         <th class="px-4 py-4 text-right">Acciones</th>
@@ -29,6 +30,7 @@
                         <tr class="text-sm">
                             <td class="px-4 py-4 font-medium"><?= esc($user['username']) ?></td>
                             <td class="px-4 py-4"><?= esc($user['email']) ?></td>
+                            <td class="px-4 py-4"><?= esc($user['role_label'] ?? 'Operador') ?></td>
                             <td class="px-4 py-4">
                                 <span class="inline-flex rounded-full px-3 py-1 text-xs font-medium <?= esc(status_badge($user['active'] ? 'active' : 'restricted')) ?>">
                                     <?= $user['active'] ? 'Activo' : 'Inactivo' ?>
@@ -40,6 +42,7 @@
                                     <a href="/configuracion/usuarios/<?= esc($user['id']) ?>/editar" class="icon-action <?= icon_button_classes('ghost') ?>" title="Editar usuario" aria-label="Editar usuario">
                                         <?= app_icon('edit') ?>
                                     </a>
+                                    <?php if (auth()->user()?->can('users.delete')): ?>
                                     <form method="post" action="/configuracion/usuarios/<?= esc($user['id']) ?>/toggle">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="icon-action <?= icon_button_classes($user['active'] ? 'rose' : 'emerald') ?>" title="<?= $user['active'] ? 'Desactivar usuario' : 'Activar usuario' ?>" aria-label="<?= $user['active'] ? 'Desactivar usuario' : 'Activar usuario' ?>">
@@ -53,6 +56,7 @@
                                             <?= app_icon('reject') ?>
                                         </button>
                                     </form>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
@@ -68,6 +72,7 @@
                         <div>
                             <p class="font-semibold text-slate-900 dark:text-white"><?= esc($user['username']) ?></p>
                             <p class="mt-1 text-sm text-slate-500 dark:text-slate-400"><?= esc($user['email']) ?></p>
+                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400"><?= esc($user['role_label'] ?? 'Operador') ?></p>
                         </div>
                         <span class="inline-flex rounded-full px-3 py-1 text-xs font-medium <?= esc(status_badge($user['active'] ? 'active' : 'restricted')) ?>">
                             <?= $user['active'] ? 'Activo' : 'Inactivo' ?>
@@ -78,12 +83,14 @@
                         <a href="/configuracion/usuarios/<?= esc($user['id']) ?>/editar" class="icon-action <?= icon_button_classes('ghost') ?>" title="Editar usuario" aria-label="Editar usuario">
                             <?= app_icon('edit') ?>
                         </a>
+                        <?php if (auth()->user()?->can('users.delete')): ?>
                         <form method="post" action="/configuracion/usuarios/<?= esc($user['id']) ?>/toggle">
                             <?= csrf_field() ?>
                             <button type="submit" class="icon-action <?= icon_button_classes($user['active'] ? 'rose' : 'emerald') ?>" title="<?= $user['active'] ? 'Desactivar usuario' : 'Activar usuario' ?>" aria-label="<?= $user['active'] ? 'Desactivar usuario' : 'Activar usuario' ?>">
                                 <?= app_icon($user['active'] ? 'disable' : 'approve') ?>
                             </button>
                         </form>
+                        <?php endif; ?>
                     </div>
                 </article>
             <?php endforeach; ?>

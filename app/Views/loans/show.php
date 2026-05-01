@@ -24,7 +24,7 @@
             <?php break; ?>
         <?php endif; ?>
     <?php endforeach; ?>
-    <?php $canDeleteLoan = ($loan['status'] ?? '') !== 'paid_off' && (float) ($loan['outstanding_balance'] ?? 0) > 0; ?>
+    <?php $canDeleteLoan = auth()->user()?->can('loans.manage') && ! in_array(($loan['status'] ?? ''), ['paid', 'paid_off'], true) && (float) ($loan['outstanding_balance'] ?? 0) > 0; ?>
 
     <div class="rounded-[2rem] bg-gradient-to-br from-emerald-700 via-teal-800 to-slate-950 p-8 text-white">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -44,7 +44,7 @@
                 <a href="/prestamos/<?= esc($loan['guid']) ?>/amortizacion" class="icon-action border-white/20 bg-white/10 text-white hover:bg-white/20" title="Ver cronograma" aria-label="Ver cronograma">
                     <?= app_icon('chart') ?>
                 </a>
-                <?php if (($loan['status'] ?? '') === 'paid_off' || round((float) ($loan['outstanding_balance'] ?? 0), 2) <= 0): ?>
+                <?php if (in_array(($loan['status'] ?? ''), ['paid', 'paid_off'], true) || round((float) ($loan['outstanding_balance'] ?? 0), 2) <= 0): ?>
                     <a href="/prestamos/<?= esc($loan['guid']) ?>/libre-deuda/pdf" class="icon-action border-white/20 bg-white/10 text-white hover:bg-white/20" title="Descargar libre deuda" aria-label="Descargar libre deuda">
                         <?= app_icon('approve') ?>
                     </a>
@@ -283,6 +283,7 @@
         </div>
     </div>
 
+    <?php if ($canDeleteLoan): ?>
     <div x-show="deleteModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" @click.self="deleteModal = false">
         <div class="w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-2xl dark:bg-slate-900">
             <div class="flex items-start justify-between gap-4">
@@ -316,5 +317,6 @@
             </form>
         </div>
     </div>
+    <?php endif; ?>
 </div>
 <?= $this->endSection() ?>

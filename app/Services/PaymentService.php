@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\InstallmentModel;
+use App\Models\LoanApplicationModel;
 use App\Models\LoanModel;
 use App\Models\NotificationModel;
 use App\Models\PaymentModel;
@@ -16,6 +17,7 @@ class PaymentService
     {
         $db = Database::connect();
         $installmentModel = new InstallmentModel();
+        $applicationModel = new LoanApplicationModel();
         $loanModel = new LoanModel();
         $paymentModel = new PaymentModel();
 
@@ -135,9 +137,15 @@ class PaymentService
         $loanModel->update($loan->guid, [
             'outstanding_balance' => round($outstandingBalance, 2),
             'next_due_date' => $nextDueDate,
-            'status' => $hasOpenInstallments ? 'active' : 'paid_off',
+            'status' => $hasOpenInstallments ? 'active' : 'paid',
             'closed_at' => $hasOpenInstallments ? null : date('Y-m-d H:i:s'),
         ]);
+
+        if (! $hasOpenInstallments && ! empty($loan->application_guid)) {
+            $applicationModel->update($loan->application_guid, [
+                'status' => 'paid',
+            ]);
+        }
 
         $db->transComplete();
 

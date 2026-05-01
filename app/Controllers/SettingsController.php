@@ -16,16 +16,19 @@ class SettingsController extends BaseController
     {
         return view('settings/users/create', [
             'title' => 'Nuevo usuario',
+            'roles' => $this->availableUserRoles(),
         ]);
     }
 
     public function storeUser()
     {
-        $payload = $this->request->getPost(['username', 'email', 'password', 'active']);
+        $payload = $this->request->getPost(['username', 'email', 'password', 'active', 'role']);
+        $payload['role'] = $this->normalizeUserRole((string) ($payload['role'] ?? 'operator'));
         $rules = [
             'username' => 'required|min_length[3]',
             'email' => 'required|valid_email',
             'password' => 'required|min_length[8]',
+            'role' => 'required|in_list[admin,operator]',
         ];
 
         if (! $this->validate($rules)) {
@@ -47,17 +50,20 @@ class SettingsController extends BaseController
         return view('settings/users/edit', [
             'title' => 'Editar usuario',
             'user' => $user,
+            'roles' => $this->availableUserRoles(),
         ]);
     }
 
     public function updateUser($id)
     {
-        $payload = $this->request->getPost(['username', 'email', 'password', 'active']);
+        $payload = $this->request->getPost(['username', 'email', 'password', 'active', 'role']);
         $payload['id'] = (int) $id;
+        $payload['role'] = $this->normalizeUserRole((string) ($payload['role'] ?? ($this->repository->getUser((int) $id)['role'] ?? 'operator')));
         $rules = [
             'username' => 'required|min_length[3]',
             'email' => 'required|valid_email',
             'password' => 'permit_empty|min_length[8]',
+            'role' => 'required|in_list[admin,operator]',
         ];
 
         if (! $this->validate($rules)) {
@@ -336,5 +342,28 @@ class SettingsController extends BaseController
         $payload['status'] = (string) ($payload['status'] ?? 'active');
 
         return $payload;
+    }
+
+    private function availableUserRoles(): array
+    {
+        $roles = [
+            'operator' => 'Operador',
+        ];
+
+        if (auth()->user()?->can('admin.access')) {
+            $roles = ['admin' => 'Administrador'] + $roles;
+        }
+
+        return $roles;
+    }
+
+    private function normalizeUserRole(string $role): string
+    {
+        $role = strtolower(trim($role));
+        if ($role === 'admin' && auth()->user()?->can('admin.access')) {
+            return 'admin';
+        }
+
+        return 'operator';
     }
 }

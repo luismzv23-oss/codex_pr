@@ -204,7 +204,7 @@ class LoanWorkflowService
         }
 
         $installments = $installmentModel->where('loan_guid', $loanGuid)->findAll();
-        $isPaidOff = (string) $loan->status === 'paid_off'
+        $isPaidOff = in_array((string) $loan->status, ['paid', 'paid_off'], true)
             || round((float) $loan->outstanding_balance, 2) <= 0;
 
         if (! $isPaidOff && $installments !== []) {

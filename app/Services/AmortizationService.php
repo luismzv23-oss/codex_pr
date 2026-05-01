@@ -127,10 +127,10 @@ class AmortizationService
             default => $this->calculateFrench($amount, $rate, $terms),
         };
 
-        $anchorDate = ! empty($loan['disbursed_at']) ? strtotime((string) $loan['disbursed_at']) : strtotime('today');
+        $firstDueDate = $this->resolveFirstDueDate($loan['disbursed_at'] ?? null);
 
         foreach ($schedule as $index => &$item) {
-            $item['due_date'] = date('Y-m-d', strtotime('+' . ($index + 1) . ' month', $anchorDate));
+            $item['due_date'] = date('Y-m-d', strtotime('+' . $index . ' month', strtotime($firstDueDate)));
         }
         unset($item);
 
@@ -145,5 +145,19 @@ class AmortizationService
     private function normalizeMonthlyRate(float $rate): float
     {
         return $rate > 1 ? ($rate / 100) : $rate;
+    }
+
+    private function resolveFirstDueDate($disbursedAt): string
+    {
+        $timestamp = ! empty($disbursedAt) ? strtotime((string) $disbursedAt) : strtotime('today');
+        if ($timestamp === false) {
+            $timestamp = strtotime('today');
+        }
+
+        $day = (int) date('j', $timestamp);
+        $baseMonth = new \DateTimeImmutable(date('Y-m-01', $timestamp));
+        $monthOffset = $day <= 19 ? '+1 month' : '+2 months';
+
+        return $baseMonth->modify($monthOffset)->format('Y-m-d');
     }
 }

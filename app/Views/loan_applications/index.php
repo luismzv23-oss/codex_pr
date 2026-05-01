@@ -7,9 +7,11 @@
             <h1 class="text-3xl font-semibold text-slate-900 dark:text-white">Solicitudes</h1>
             <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Embudo base de originacion y evaluacion crediticia.</p>
         </div>
-        <a href="/solicitudes/crear" class="icon-action <?= icon_button_classes('accent') ?>" title="Nueva solicitud" aria-label="Nueva solicitud">
-            <?= app_icon('document-plus') ?>
-        </a>
+        <?php if (auth()->user()?->can('applications.create')): ?>
+            <a href="/solicitudes/crear" class="icon-action <?= icon_button_classes('accent') ?>" title="Nueva solicitud" aria-label="Nueva solicitud">
+                <?= app_icon('document-plus') ?>
+            </a>
+        <?php endif; ?>
     </div>
 
     <div class="grid gap-4 md:grid-cols-3">

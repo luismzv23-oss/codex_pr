@@ -22,6 +22,14 @@
                 <span class="text-sm font-medium">Password</span>
                 <input type="password" name="password" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900" required>
             </label>
+            <label class="space-y-2 md:col-span-2">
+                <span class="text-sm font-medium">Rol</span>
+                <select name="role" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900" required>
+                    <?php foreach ($roles as $value => $label): ?>
+                        <option value="<?= esc($value) ?>" <?= old('role', 'operator') === $value ? 'selected' : '' ?>><?= esc($label) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
             <label class="inline-flex items-center gap-3 text-sm font-medium">
                 <input type="checkbox" name="active" value="1" class="h-5 w-5 rounded border-slate-300 text-slate-900" <?= old('active', '1') ? 'checked' : '' ?>>
                 <span>Usuario activo</span>

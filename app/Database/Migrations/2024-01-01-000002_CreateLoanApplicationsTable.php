@@ -46,7 +46,7 @@ class CreateLoanApplicationsTable extends Migration
             ],
             'status' => [
                 'type'       => 'ENUM',
-                'constraint' => ['draft', 'evaluation', 'approved', 'rejected', 'disbursed', 'closed', 'defaulted'],
+                'constraint' => ['draft', 'evaluation', 'approved', 'rejected', 'disbursed', 'closed', 'defaulted', 'paid'],
                 'default'    => 'draft',
             ],
             'evaluated_by' => [

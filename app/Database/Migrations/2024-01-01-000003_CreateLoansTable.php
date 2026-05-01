@@ -56,7 +56,7 @@ class CreateLoansTable extends Migration
             ],
             'status' => [
                 'type'       => 'ENUM',
-                'constraint' => ['active', 'paid_off', 'defaulted', 'restructured'],
+                'constraint' => ['active', 'paid', 'paid_off', 'defaulted', 'restructured'],
                 'default'    => 'active',
             ],
             'next_due_date' => [

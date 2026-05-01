@@ -11,7 +11,7 @@
             </div>
             <div class="flex items-center gap-3">
                 <span class="inline-flex rounded-full px-4 py-2 text-sm font-medium <?= esc(status_badge($application['status'])) ?>"><?= esc(status_label($application['status'])) ?></span>
-                <?php if (($application['status'] ?? '') === 'rejected'): ?>
+                <?php if (($application['status'] ?? '') === 'rejected' && auth()->user()?->can('applications.manage')): ?>
                     <button type="button" class="icon-action <?= icon_button_classes('rose') ?>" title="Eliminar solicitud" aria-label="Eliminar solicitud" @click="deleteModal = true">
                         <?= app_icon('reject') ?>
                     </button>
@@ -44,14 +44,18 @@
 
             <?php if (! empty($application['linked_loan_guid'])): ?>
                 <div class="mt-6 flex flex-wrap gap-2">
+                    <?php if (auth()->user()?->can('loans.view')): ?>
                     <a href="/prestamos/<?= esc($application['linked_loan_guid']) ?>" class="inline-flex items-center gap-2 rounded-2xl border <?= icon_button_classes('sky') ?> px-4 py-3 text-sm font-medium">
                         <?= app_icon('loan', 'h-4 w-4') ?>
                         <span>Ver prestamo generado</span>
                     </a>
+                    <?php endif; ?>
+                    <?php if (auth()->user()?->can('documents.download')): ?>
                     <a href="/prestamos/<?= esc($application['linked_loan_guid']) ?>/contrato/pdf" class="inline-flex items-center gap-2 rounded-2xl border <?= icon_button_classes('ghost') ?> px-4 py-3 text-sm font-medium">
                         <?= app_icon('pdf', 'h-4 w-4') ?>
                         <span>Descargar contrato</span>
                     </a>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
 
@@ -62,6 +66,7 @@
             <?php endif; ?>
         </div>
 
+        <?php if (auth()->user()?->can('applications.manage')): ?>
         <div class="glass-card p-6">
             <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Proceso de aprobacion</h2>
             <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Al aprobar se crea el prestamo y se generan automaticamente sus cuotas.</p>
@@ -107,9 +112,10 @@
                 </div>
             </div>
         </div>
+        <?php endif; ?>
     </div>
 
-    <?php if (($application['status'] ?? '') === 'rejected'): ?>
+    <?php if (($application['status'] ?? '') === 'rejected' && auth()->user()?->can('applications.manage')): ?>
         <div x-show="deleteModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" @click.self="deleteModal = false">
             <div class="w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-2xl dark:bg-slate-900">
                 <div class="flex items-start justify-between gap-4">

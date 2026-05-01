@@ -130,7 +130,7 @@ class LoanDocumentController extends BaseController
             throw PageNotFoundException::forPageNotFound('Prestamo no encontrado');
         }
 
-        if (($loan['status'] ?? '') !== 'paid_off' && round((float) ($loan['outstanding_balance'] ?? 0), 2) > 0) {
+        if (! in_array(($loan['status'] ?? ''), ['paid', 'paid_off'], true) && round((float) ($loan['outstanding_balance'] ?? 0), 2) > 0) {
             return redirect()->back()->with('errors', ['El PDF de libre deuda solo puede generarse cuando el credito esta totalmente pagado.']);
         }
 

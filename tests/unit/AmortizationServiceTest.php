@@ -37,4 +37,34 @@ final class AmortizationServiceTest extends CIUnitTestCase
         $this->assertSame(3655.59, $schedule[2]['interest_amount']);
         $this->assertSame(0.00, $schedule[2]['remaining_balance']);
     }
+
+    public function testInstallmentsStartNextMonthWhenLoanIsRequestedBeforeDayTwenty(): void
+    {
+        $schedule = (new AmortizationService())->generateSchedule([
+            'principal_amount' => 100000,
+            'interest_rate' => 0.10,
+            'term_months' => 3,
+            'amortization_type' => 'french',
+            'disbursed_at' => '2026-05-19 10:00:00',
+        ]);
+
+        $this->assertSame('2026-06-01', $schedule[0]['due_date']);
+        $this->assertSame('2026-07-01', $schedule[1]['due_date']);
+        $this->assertSame('2026-08-01', $schedule[2]['due_date']);
+    }
+
+    public function testInstallmentsStartFollowingMonthWhenLoanIsRequestedFromDayTwenty(): void
+    {
+        $schedule = (new AmortizationService())->generateSchedule([
+            'principal_amount' => 100000,
+            'interest_rate' => 0.10,
+            'term_months' => 3,
+            'amortization_type' => 'french',
+            'disbursed_at' => '2026-05-20 10:00:00',
+        ]);
+
+        $this->assertSame('2026-07-01', $schedule[0]['due_date']);
+        $this->assertSame('2026-08-01', $schedule[1]['due_date']);
+        $this->assertSame('2026-09-01', $schedule[2]['due_date']);
+    }
 }

@@ -9,9 +9,30 @@ class LoanApplicationController extends BaseController
 {
     public function index()
     {
+        $loansByApplication = [];
+        foreach ($this->repository->getLoans() as $loan) {
+            if (! empty($loan['application_guid'])) {
+                $loansByApplication[$loan['application_guid']] = $loan;
+            }
+        }
+
+        $applications = array_values(array_filter(
+            $this->repository->getApplications(),
+            static function (array $application) use ($loansByApplication): bool {
+                if (($application['status'] ?? '') === 'paid') {
+                    return false;
+                }
+
+                $loan = $loansByApplication[$application['guid']] ?? null;
+
+                return $loan === null
+                    || (! in_array(($loan['status'] ?? ''), ['paid', 'paid_off'], true) && round((float) ($loan['outstanding_balance'] ?? 0), 2) > 0);
+            }
+        ));
+
         return view('loan_applications/index', [
             'title' => 'Solicitudes',
-            'applications' => $this->repository->getApplications(),
+            'applications' => $applications,
             'customers' => $this->repository->getCustomers(),
         ]);
     }

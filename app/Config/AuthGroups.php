@@ -23,7 +23,7 @@ class AuthGroups extends ShieldAuthGroups
      * --------------------------------------------------------------------
      * The group that a newly registered user is added to.
      */
-    public string $defaultGroup = 'user';
+    public string $defaultGroup = 'operator';
 
     /**
      * --------------------------------------------------------------------
@@ -41,25 +41,13 @@ class AuthGroups extends ShieldAuthGroups
      * @see https://codeigniter4.github.io/shield/quick_start_guide/using_authorization/#change-available-groups for more info
      */
     public array $groups = [
-        'superadmin' => [
-            'title'       => 'Super Admin',
-            'description' => 'Complete control of the site.',
-        ],
         'admin' => [
-            'title'       => 'Admin',
-            'description' => 'Day to day administrators of the site.',
+            'title'       => 'Administrador',
+            'description' => 'Acceso pleno a todas las funcionalidades del sistema.',
         ],
-        'developer' => [
-            'title'       => 'Developer',
-            'description' => 'Site programmers.',
-        ],
-        'user' => [
-            'title'       => 'User',
-            'description' => 'General users of the site. Often customers.',
-        ],
-        'beta' => [
-            'title'       => 'Beta User',
-            'description' => 'Has access to beta-level features.',
+        'operator' => [
+            'title'       => 'Operador',
+            'description' => 'Operador de solicitudes, cuotas, simulaciones, usuarios y documentos.',
         ],
     ];
 
@@ -72,13 +60,26 @@ class AuthGroups extends ShieldAuthGroups
      * If a permission is not listed here it cannot be used.
      */
     public array $permissions = [
-        'admin.access'        => 'Can access the sites admin area',
-        'admin.settings'      => 'Can access the main site settings',
-        'users.manage-admins' => 'Can manage other admins',
-        'users.create'        => 'Can create new non-admin users',
-        'users.edit'          => 'Can edit existing non-admin users',
-        'users.delete'        => 'Can delete existing non-admin users',
-        'beta.access'         => 'Can access beta-level features',
+        'admin.access'        => 'Acceso pleno administrativo',
+        'dashboard.view'      => 'Ver panel principal',
+        'customers.view'      => 'Ver fichas de clientes',
+        'customers.manage'    => 'Registrar y editar clientes',
+        'customers.delete'    => 'Eliminar clientes',
+        'applications.view'   => 'Ver solicitudes',
+        'applications.create' => 'Crear solicitudes',
+        'applications.manage' => 'Evaluar, aprobar, rechazar y eliminar solicitudes',
+        'loans.view'          => 'Ver prestamos',
+        'loans.manage'        => 'Administrar prestamos',
+        'payments.view'       => 'Ver historial de pagos',
+        'payments.collect'    => 'Cobrar cuotas pendientes de prestamos',
+        'simulations.create'  => 'Simular solicitudes de credito',
+        'documents.download'  => 'Descargar documentos PDF de prestamos',
+        'reports.view'        => 'Ver reportes',
+        'settings.manage'     => 'Administrar configuracion',
+        'users.view'          => 'Ver usuarios',
+        'users.create'        => 'Registrar usuarios',
+        'users.edit'          => 'Editar usuarios',
+        'users.delete'        => 'Eliminar usuarios',
     ];
 
     /**
@@ -90,28 +91,37 @@ class AuthGroups extends ShieldAuthGroups
      * This defines group-level permissions.
      */
     public array $matrix = [
-        'superadmin' => [
-            'admin.*',
-            'users.*',
-            'beta.*',
-        ],
         'admin' => [
             'admin.access',
+            'dashboard.view',
+            'customers.view',
+            'customers.manage',
+            'customers.delete',
+            'applications.view',
+            'applications.create',
+            'applications.manage',
+            'loans.view',
+            'loans.manage',
+            'payments.view',
+            'payments.collect',
+            'simulations.create',
+            'documents.download',
+            'reports.view',
+            'settings.manage',
+            'users.view',
             'users.create',
             'users.edit',
             'users.delete',
-            'beta.access',
         ],
-        'developer' => [
-            'admin.access',
-            'admin.settings',
-            'users.create',
-            'users.edit',
-            'beta.access',
-        ],
-        'user' => [],
-        'beta' => [
-            'beta.access',
+        'operator' => [
+            'customers.view',
+            'customers.manage',
+            'applications.view',
+            'applications.create',
+            'loans.view',
+            'payments.collect',
+            'simulations.create',
+            'documents.download',
         ],
     ];
 }
