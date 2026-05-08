@@ -18,7 +18,7 @@ class ProfileController extends BaseController
     {
         $rules = [
             'current_password' => 'required',
-            'password' => 'required|min_length[8]',
+            'password' => 'required|min_length[12]',
             'password_confirm' => 'required|matches[password]',
         ];
 

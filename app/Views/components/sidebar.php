@@ -92,5 +92,12 @@
             </div>
         </div>
         <?php endif; ?>
+
+        <?php if ($currentUser?->can('data.export')): ?>
+        <a class="flex items-center gap-3 rounded-2xl px-4 py-3 text-slate-300 transition hover:bg-slate-800 hover:text-white" href="/datos">
+            <?= app_icon('statement', 'h-5 w-5 text-violet-400') ?>
+            <span>Datos CSV</span>
+        </a>
+        <?php endif; ?>
     </nav>
 </aside>

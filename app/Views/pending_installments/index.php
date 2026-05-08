@@ -27,6 +27,7 @@
                             <th class="px-4 py-4">Cliente</th>
                             <th class="px-4 py-4">Prestamo</th>
                             <th class="px-4 py-4">Cuota</th>
+                            <th class="px-4 py-4">Generacion</th>
                             <th class="px-4 py-4">Vencimiento</th>
                             <th class="px-4 py-4">Total</th>
                             <th class="px-4 py-4">Pagado</th>
@@ -43,6 +44,7 @@
                                     <a href="/prestamos/<?= esc($item['loan_guid']) ?>" class="font-medium text-slate-900 hover:text-sky-600 dark:text-white dark:hover:text-sky-300"><?= esc($item['loan_label']) ?></a>
                                 </td>
                                 <td class="px-4 py-4"><?= esc($item['installment_number']) ?></td>
+                                <td class="px-4 py-4"><?= esc(date('d/m/Y', strtotime($item['generation_date'] ?? date('Y-m-01', strtotime($item['due_date']))))) ?></td>
                                 <td class="px-4 py-4"><?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></td>
                                 <td class="px-4 py-4"><?= esc(money($item['total_amount'], $item['currency'])) ?></td>
                                 <td class="px-4 py-4"><?= esc(money($item['paid_amount'], $item['currency'])) ?></td>
@@ -68,7 +70,7 @@
                             <div>
                                 <p class="text-sm font-semibold text-slate-900 dark:text-white"><?= esc($item['customer_name']) ?></p>
                                 <a href="/prestamos/<?= esc($item['loan_guid']) ?>" class="mt-1 block text-sm text-sky-600 dark:text-sky-300"><?= esc($item['loan_label']) ?></a>
-                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Cuota <?= esc($item['installment_number']) ?> - <?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></p>
+                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Cuota <?= esc($item['installment_number']) ?> - generada <?= esc(date('d/m/Y', strtotime($item['generation_date'] ?? date('Y-m-01', strtotime($item['due_date']))))) ?> - vence <?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></p>
                             </div>
                             <span class="inline-flex rounded-full px-3 py-1 text-xs font-medium <?= esc(status_badge($item['status'])) ?>"><?= esc(status_label($item['status'])) ?></span>
                         </div>

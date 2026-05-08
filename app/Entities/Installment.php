@@ -7,7 +7,7 @@ use CodeIgniter\Entity\Entity;
 class Installment extends Entity
 {
     protected $datamap = [];
-    protected $dates   = ['created_at', 'updated_at', 'deleted_at', 'due_date', 'paid_at'];
+    protected $dates   = ['created_at', 'updated_at', 'deleted_at', 'generation_date', 'due_date', 'paid_at'];
     protected $casts   = [
         'installment_number' => 'integer',
         'principal_amount'   => 'float',

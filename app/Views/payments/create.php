@@ -52,13 +52,13 @@
                 <span class="text-sm font-medium">Cuota</span>
                 <input type="hidden" name="installment_guid" value="<?= esc(old('installment_guid', $installment_guid ?: '')) ?>">
                 <div class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950">
-                    <?= $installment ? 'Cuota ' . esc($installment['installment_number']) . ' - vence ' . esc(date('d/m/Y', strtotime($installment['due_date']))) : esc(old('installment_guid', $installment_guid ?: '')) ?>
+                    <?= $installment ? 'Cuota ' . esc($installment['installment_number']) . ' - generada ' . esc(date('d/m/Y', strtotime($installment['generation_date'] ?? date('Y-m-01', strtotime($installment['due_date']))))) . ' - vence ' . esc(date('d/m/Y', strtotime($installment['due_date']))) : esc(old('installment_guid', $installment_guid ?: '')) ?>
                 </div>
             </label>
 
             <label class="space-y-2">
                 <span class="text-sm font-medium">Monto a cobrar</span>
-                <input name="amount" value="<?= esc(old('amount', $installment['amount_due'] ?? $installment['total_amount'] ?? '')) ?>" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900" required>
+                <input name="amount" value="<?= esc(old('amount', $installment['amount_due'] ?? $installment['total_amount'] ?? '')) ?>" data-money class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900" required>
             </label>
 
             <label class="space-y-2">

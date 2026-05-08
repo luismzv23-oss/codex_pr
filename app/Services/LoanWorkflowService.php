@@ -103,6 +103,7 @@ class LoanWorkflowService
             $installmentModel->insert([
                 'loan_guid' => $loan->guid,
                 'installment_number' => $item['installment_number'],
+                'generation_date' => $item['generation_date'],
                 'due_date' => $item['due_date'],
                 'principal_amount' => $item['principal_amount'],
                 'interest_amount' => $item['interest_amount'],

@@ -11,12 +11,13 @@
 
     <table class="report">
         <thead>
-            <tr><th>Nro</th><th>Vence</th><th>Capital</th><th>Interes</th><th>Total</th><th>Saldo</th><th>Estado</th></tr>
+            <tr><th>Nro</th><th>Generada</th><th>Vence</th><th>Capital</th><th>Interes</th><th>Total</th><th>Saldo</th><th>Estado</th></tr>
         </thead>
         <tbody>
             <?php foreach ($installments as $item): ?>
                 <tr>
                     <td><?= esc($item['installment_number']) ?></td>
+                    <td><?= esc(date('d/m/Y', strtotime($item['generation_date'] ?? date('Y-m-01', strtotime($item['due_date']))))) ?></td>
                     <td><?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></td>
                     <td><?= esc(money($item['principal_amount'], $loan['currency'])) ?></td>
                     <td><?= esc(money($item['interest_amount'], $loan['currency'])) ?></td>

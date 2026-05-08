@@ -27,8 +27,8 @@ class SettingsController extends BaseController
         $rules = [
             'username' => 'required|min_length[3]',
             'email' => 'required|valid_email',
-            'password' => 'required|min_length[8]',
-            'role' => 'required|in_list[admin,operator]',
+            'password' => 'required|min_length[12]',
+            'role' => 'required|in_list[superadmin,admin,operator]',
         ];
 
         if (! $this->validate($rules)) {
@@ -62,8 +62,8 @@ class SettingsController extends BaseController
         $rules = [
             'username' => 'required|min_length[3]',
             'email' => 'required|valid_email',
-            'password' => 'permit_empty|min_length[8]',
-            'role' => 'required|in_list[admin,operator]',
+            'password' => 'permit_empty|min_length[12]',
+            'role' => 'required|in_list[superadmin,admin,operator]',
         ];
 
         if (! $this->validate($rules)) {
@@ -354,12 +354,19 @@ class SettingsController extends BaseController
             $roles = ['admin' => 'Administrador'] + $roles;
         }
 
+        if (auth()->user()?->inGroup('superadmin')) {
+            $roles = ['superadmin' => 'Super Administrador'] + $roles;
+        }
+
         return $roles;
     }
 
     private function normalizeUserRole(string $role): string
     {
         $role = strtolower(trim($role));
+        if ($role === 'superadmin' && auth()->user()?->inGroup('superadmin')) {
+            return 'superadmin';
+        }
         if ($role === 'admin' && auth()->user()?->can('admin.access')) {
             return 'admin';
         }

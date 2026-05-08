@@ -127,10 +127,12 @@ class AmortizationService
             default => $this->calculateFrench($amount, $rate, $terms),
         };
 
-        $firstDueDate = $this->resolveFirstDueDate($loan['disbursed_at'] ?? null);
+        $firstGenerationDate = $this->resolveFirstGenerationDate($loan['disbursed_at'] ?? null);
 
         foreach ($schedule as $index => &$item) {
-            $item['due_date'] = date('Y-m-d', strtotime('+' . $index . ' month', strtotime($firstDueDate)));
+            $generationDate = date('Y-m-d', strtotime('+' . $index . ' month', strtotime($firstGenerationDate)));
+            $item['generation_date'] = $generationDate;
+            $item['due_date'] = date('Y-m-05', strtotime($generationDate));
         }
         unset($item);
 
@@ -147,7 +149,7 @@ class AmortizationService
         return $rate > 1 ? ($rate / 100) : $rate;
     }
 
-    private function resolveFirstDueDate($disbursedAt): string
+    private function resolveFirstGenerationDate($disbursedAt): string
     {
         $timestamp = ! empty($disbursedAt) ? strtotime((string) $disbursedAt) : strtotime('today');
         if ($timestamp === false) {

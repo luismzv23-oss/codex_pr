@@ -22,12 +22,13 @@
     <h2>Cuotas</h2>
     <table class="report">
         <thead>
-            <tr><th>Nro</th><th>Vence</th><th>Total</th><th>Pagado</th><th>Pendiente</th><th>Estado</th></tr>
+            <tr><th>Nro</th><th>Generada</th><th>Vence</th><th>Total</th><th>Pagado</th><th>Pendiente</th><th>Estado</th></tr>
         </thead>
         <tbody>
             <?php foreach ($installments as $item): ?>
                 <tr>
                     <td><?= esc($item['installment_number']) ?></td>
+                    <td><?= esc(date('d/m/Y', strtotime($item['generation_date'] ?? date('Y-m-01', strtotime($item['due_date']))))) ?></td>
                     <td><?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></td>
                     <td><?= esc(money($item['total_amount'], $loan['currency'])) ?></td>
                     <td><?= esc(money($item['paid_amount'], $loan['currency'])) ?></td>

@@ -81,9 +81,9 @@ class LoanApplicationController extends BaseController
 
         $rules = [
             'customer_guid' => 'required',
-            'requested_amount' => 'required|decimal',
+            'requested_amount' => 'required|decimal|greater_than[0]',
             'currency' => 'required|exact_length[3]',
-            'interest_rate' => 'required|decimal',
+            'interest_rate' => 'required|decimal|greater_than_equal_to[0]',
             'term_months' => 'required|integer|greater_than[0]',
             'amortization_type' => 'required',
         ];
@@ -128,6 +128,14 @@ class LoanApplicationController extends BaseController
     {
         $application = $this->repository->getApplication($id);
         $amount = $this->request->getPost('approved_amount') ?: ($application['requested_amount'] ?? null);
+
+        if ($application === null) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound('Solicitud no encontrada');
+        }
+
+        if (! is_numeric($amount) || (float) $amount <= 0) {
+            return redirect()->back()->withInput()->with('errors', ['El monto aprobado debe ser mayor a cero.']);
+        }
 
         try {
             $result = (new LoanWorkflowService())->approve($id, (float) $amount);

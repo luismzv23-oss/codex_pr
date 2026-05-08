@@ -27,7 +27,7 @@ class InitialDataSeeder extends Seeder
         $user = new User([
             'username' => 'admin',
             'email' => 'admin@fintech.local',
-            'password' => 'Admin12345',
+            'password' => $this->initialAdminPassword(),
             'active' => 1,
         ]);
 
@@ -35,6 +35,21 @@ class InitialDataSeeder extends Seeder
         $user = $users->where('username', 'admin')->first();
         $user->activate();
         $user->addGroup('admin');
+    }
+
+    private function initialAdminPassword(): string
+    {
+        $password = (string) (getenv('SEED_ADMIN_PASSWORD') ?: getenv('ADMIN_PASSWORD') ?: '');
+
+        if ($password === '' && ENVIRONMENT !== 'production') {
+            $password = 'ChangeMeNow!2026';
+        }
+
+        if (strlen($password) < 12) {
+            throw new \RuntimeException('Define SEED_ADMIN_PASSWORD con al menos 12 caracteres antes de ejecutar el seeder inicial.');
+        }
+
+        return $password;
     }
 
     private function seedCurrencies(): void
@@ -247,7 +262,7 @@ class InitialDataSeeder extends Seeder
                 'total_payable' => 161850.00,
                 'outstanding_balance' => 129480.00,
                 'status' => 'active',
-                'next_due_date' => date('Y-m-d', strtotime('+3 days')),
+                'next_due_date' => date('Y-m-05', strtotime('+1 month')),
                 'disbursed_at' => $now,
                 'closed_at' => null,
                 'created_at' => $now,
@@ -266,7 +281,7 @@ class InitialDataSeeder extends Seeder
                 'total_payable' => 276500.00,
                 'outstanding_balance' => 184300.00,
                 'status' => 'active',
-                'next_due_date' => date('Y-m-d', strtotime('-2 days')),
+                'next_due_date' => date('Y-m-05'),
                 'disbursed_at' => $now,
                 'closed_at' => null,
                 'created_at' => $now,
@@ -279,7 +294,8 @@ class InitialDataSeeder extends Seeder
                 'guid' => 'f1111111-1111-1111-1111-111111111111',
                 'loan_guid' => 'dddddddd-1111-1111-1111-111111111111',
                 'installment_number' => 1,
-                'due_date' => date('Y-m-d', strtotime('-12 days')),
+                'generation_date' => date('Y-m-01', strtotime('-1 month')),
+                'due_date' => date('Y-m-05', strtotime('-1 month')),
                 'principal_amount' => 0.00,
                 'interest_amount' => 1185.00,
                 'total_amount' => 1185.00,
@@ -295,7 +311,8 @@ class InitialDataSeeder extends Seeder
                 'guid' => 'f2222222-2222-2222-2222-222222222222',
                 'loan_guid' => 'dddddddd-1111-1111-1111-111111111111',
                 'installment_number' => 2,
-                'due_date' => date('Y-m-d', strtotime('+3 days')),
+                'generation_date' => date('Y-m-01', strtotime('+1 month')),
+                'due_date' => date('Y-m-05', strtotime('+1 month')),
                 'principal_amount' => 0.00,
                 'interest_amount' => 1185.00,
                 'total_amount' => 1185.00,
@@ -311,7 +328,8 @@ class InitialDataSeeder extends Seeder
                 'guid' => 'f3333333-3333-3333-3333-333333333333',
                 'loan_guid' => 'eeeeeeee-2222-2222-2222-222222222222',
                 'installment_number' => 1,
-                'due_date' => date('Y-m-d', strtotime('-16 days')),
+                'generation_date' => date('Y-m-01', strtotime('-1 month')),
+                'due_date' => date('Y-m-05', strtotime('-1 month')),
                 'principal_amount' => 19000.00,
                 'interest_amount' => 1770.00,
                 'total_amount' => 20770.00,
@@ -327,7 +345,8 @@ class InitialDataSeeder extends Seeder
                 'guid' => 'f4444444-4444-4444-4444-444444444444',
                 'loan_guid' => 'eeeeeeee-2222-2222-2222-222222222222',
                 'installment_number' => 2,
-                'due_date' => date('Y-m-d', strtotime('-2 days')),
+                'generation_date' => date('Y-m-01'),
+                'due_date' => date('Y-m-05'),
                 'principal_amount' => 19340.00,
                 'interest_amount' => 1430.00,
                 'total_amount' => 20770.00,

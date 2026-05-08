@@ -36,7 +36,7 @@
                 </div>
                 <div class="flex items-center justify-between">
                     <dt class="text-slate-500 dark:text-slate-400">Score de riesgo</dt>
-                    <dd><?= esc(number_format((float) $customer['risk_score'], 1)) ?> / 10</dd>
+                    <dd><?= esc(number_format((float) $customer['risk_score'], 1, ',', '.')) ?> / 10</dd>
                 </div>
                 <div class="flex items-center justify-between">
                     <dt class="text-slate-500 dark:text-slate-400">Alta</dt>

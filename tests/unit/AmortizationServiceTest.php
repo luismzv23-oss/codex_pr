@@ -48,9 +48,12 @@ final class AmortizationServiceTest extends CIUnitTestCase
             'disbursed_at' => '2026-05-19 10:00:00',
         ]);
 
-        $this->assertSame('2026-06-01', $schedule[0]['due_date']);
-        $this->assertSame('2026-07-01', $schedule[1]['due_date']);
-        $this->assertSame('2026-08-01', $schedule[2]['due_date']);
+        $this->assertSame('2026-06-01', $schedule[0]['generation_date']);
+        $this->assertSame('2026-06-05', $schedule[0]['due_date']);
+        $this->assertSame('2026-07-01', $schedule[1]['generation_date']);
+        $this->assertSame('2026-07-05', $schedule[1]['due_date']);
+        $this->assertSame('2026-08-01', $schedule[2]['generation_date']);
+        $this->assertSame('2026-08-05', $schedule[2]['due_date']);
     }
 
     public function testInstallmentsStartFollowingMonthWhenLoanIsRequestedFromDayTwenty(): void
@@ -63,8 +66,11 @@ final class AmortizationServiceTest extends CIUnitTestCase
             'disbursed_at' => '2026-05-20 10:00:00',
         ]);
 
-        $this->assertSame('2026-07-01', $schedule[0]['due_date']);
-        $this->assertSame('2026-08-01', $schedule[1]['due_date']);
-        $this->assertSame('2026-09-01', $schedule[2]['due_date']);
+        $this->assertSame('2026-07-01', $schedule[0]['generation_date']);
+        $this->assertSame('2026-07-05', $schedule[0]['due_date']);
+        $this->assertSame('2026-08-01', $schedule[1]['generation_date']);
+        $this->assertSame('2026-08-05', $schedule[1]['due_date']);
+        $this->assertSame('2026-09-01', $schedule[2]['generation_date']);
+        $this->assertSame('2026-09-05', $schedule[2]['due_date']);
     }
 }

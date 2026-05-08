@@ -13,7 +13,7 @@ class InstallmentModel extends BaseUuidModel
     protected $useSoftDeletes   = true;
     protected $protectFields    = true;
     protected $allowedFields    = [
-        'loan_guid', 'installment_number', 'due_date', 'principal_amount',
+        'loan_guid', 'installment_number', 'generation_date', 'due_date', 'principal_amount',
         'interest_amount', 'total_amount', 'paid_amount', 'remaining_balance',
         'status', 'paid_at', 'late_fee'
     ];

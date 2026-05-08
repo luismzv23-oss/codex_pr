@@ -331,6 +331,10 @@ class AppRepository
         $installments = $this->safeFindAll(new InstallmentModel(), 'installments');
 
         foreach ($installments as &$installment) {
+            if (empty($installment['generation_date']) && ! empty($installment['due_date'])) {
+                $installment['generation_date'] = date('Y-m-01', strtotime((string) $installment['due_date']));
+            }
+
             $installment['status'] = $this->normalizeInstallmentStatus($installment);
             $installment['amount_due'] = max(
                 0,
@@ -594,11 +598,18 @@ class AppRepository
         try {
             $users = model(UserModel::class)->withIdentities()->findAll();
 
-            return array_map(static function (User $user): array {
+            $result = [];
+            foreach ($users as $user) {
                 $groups = $user->getGroups() ?? [];
+
+                // Hide superadmin users from the listing
+                if (in_array('superadmin', $groups, true)) {
+                    continue;
+                }
+
                 $role = in_array('admin', $groups, true) ? 'admin' : 'operator';
 
-                return [
+                $result[] = [
                     'id' => $user->id,
                     'username' => $user->username,
                     'email' => $user->getEmail(),
@@ -607,7 +618,9 @@ class AppRepository
                     'role_label' => $role === 'admin' ? 'Administrador' : 'Operador',
                     'created_at' => (string) $user->created_at,
                 ];
-            }, $users);
+            }
+
+            return $result;
         } catch (Throwable) {
             return $this->fallbackData()['users'];
         }
@@ -653,7 +666,7 @@ class AppRepository
             $user = new User([
                 'username' => $data['username'],
                 'email' => $data['email'],
-                'password' => $data['password'] ?? 'ChangeMe123!',
+                'password' => $data['password'] ?? bin2hex(random_bytes(12)),
                 'active' => ! empty($data['active']) ? 1 : 0,
             ]);
 
@@ -953,6 +966,7 @@ class AppRepository
                 $model->insert([
                     'loan_guid' => $loan['guid'],
                     'installment_number' => $number,
+                    'generation_date' => $item['generation_date'],
                     'due_date' => $item['due_date'],
                     'principal_amount' => $item['principal_amount'],
                     'interest_amount' => $item['interest_amount'],
@@ -1027,6 +1041,7 @@ class AppRepository
             foreach ($expected as $item) {
                 $number = (int) $item['installment_number'];
                 $payload = [
+                    'generation_date' => $item['generation_date'],
                     'due_date' => $item['due_date'],
                     'principal_amount' => $item['principal_amount'],
                     'interest_amount' => $item['interest_amount'],
@@ -1091,7 +1106,9 @@ class AppRepository
             }
 
             if (
-                $this->moneyDiffers((float) ($current['principal_amount'] ?? 0), (float) $item['principal_amount'])
+                (string) ($current['generation_date'] ?? '') !== (string) ($item['generation_date'] ?? '')
+                || (string) ($current['due_date'] ?? '') !== (string) ($item['due_date'] ?? '')
+                || $this->moneyDiffers((float) ($current['principal_amount'] ?? 0), (float) $item['principal_amount'])
                 || $this->moneyDiffers((float) ($current['interest_amount'] ?? 0), (float) $item['interest_amount'])
                 || $this->moneyDiffers((float) ($current['total_amount'] ?? 0), (float) $item['total_amount'])
                 || $this->moneyDiffers((float) ($current['remaining_balance'] ?? 0), (float) $item['remaining_balance'])
@@ -1341,7 +1358,7 @@ class AppRepository
                     'total_payable' => 161850,
                     'outstanding_balance' => 129480,
                     'status' => 'active',
-                    'next_due_date' => date('Y-m-d', strtotime('+3 days')),
+                    'next_due_date' => date('Y-m-05', strtotime('+1 month')),
                     'disbursed_at' => '2026-04-20 14:20:00',
                     'closed_at' => null,
                     'created_at' => '2026-04-20 14:20:00',
@@ -1359,7 +1376,7 @@ class AppRepository
                     'total_payable' => 276500,
                     'outstanding_balance' => 184300,
                     'status' => 'active',
-                    'next_due_date' => date('Y-m-d', strtotime('-2 days')),
+                    'next_due_date' => date('Y-m-05'),
                     'disbursed_at' => '2026-04-11 12:00:00',
                     'closed_at' => null,
                     'created_at' => '2026-04-11 12:00:00',
@@ -1370,7 +1387,8 @@ class AppRepository
                     'guid' => 'ins-demo-001',
                     'loan_guid' => 'loan-demo-001',
                     'installment_number' => 1,
-                    'due_date' => date('Y-m-d', strtotime('-12 days')),
+                    'generation_date' => date('Y-m-01', strtotime('-1 month')),
+                    'due_date' => date('Y-m-05', strtotime('-1 month')),
                     'principal_amount' => 0,
                     'interest_amount' => 1185,
                     'total_amount' => 1185,
@@ -1384,7 +1402,8 @@ class AppRepository
                     'guid' => 'ins-demo-002',
                     'loan_guid' => 'loan-demo-001',
                     'installment_number' => 2,
-                    'due_date' => date('Y-m-d', strtotime('+3 days')),
+                    'generation_date' => date('Y-m-01', strtotime('+1 month')),
+                    'due_date' => date('Y-m-05', strtotime('+1 month')),
                     'principal_amount' => 0,
                     'interest_amount' => 1185,
                     'total_amount' => 1185,
@@ -1398,7 +1417,8 @@ class AppRepository
                     'guid' => 'ins-demo-003',
                     'loan_guid' => 'loan-demo-002',
                     'installment_number' => 1,
-                    'due_date' => date('Y-m-d', strtotime('-16 days')),
+                    'generation_date' => date('Y-m-01', strtotime('-1 month')),
+                    'due_date' => date('Y-m-05', strtotime('-1 month')),
                     'principal_amount' => 19000,
                     'interest_amount' => 1770,
                     'total_amount' => 20770,
@@ -1412,7 +1432,8 @@ class AppRepository
                     'guid' => 'ins-demo-004',
                     'loan_guid' => 'loan-demo-002',
                     'installment_number' => 2,
-                    'due_date' => date('Y-m-d', strtotime('-2 days')),
+                    'generation_date' => date('Y-m-01'),
+                    'due_date' => date('Y-m-05'),
                     'principal_amount' => 19340,
                     'interest_amount' => 1430,
                     'total_amount' => 20770,

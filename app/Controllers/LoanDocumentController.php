@@ -64,7 +64,7 @@ class LoanDocumentController extends BaseController
                 'title' => 'Estado de cuenta',
                 'statement' => $statement,
             ],
-            'estado-cuenta-' . ($statement['loan']['alias'] ?? $statement['loan']['guid']) . '.pdf'
+            'estado-cuenta-' . $this->pdfFilenamePart($statement['customer']['full_name'] ?? 'cliente') . '-' . ($statement['loan']['alias'] ?? $statement['loan']['guid']) . '.pdf'
         );
     }
 
@@ -99,15 +99,7 @@ class LoanDocumentController extends BaseController
         }
 
         $application = ! empty($loan['application_guid']) ? $this->repository->getApplication((string) $loan['application_guid']) : null;
-        $service = new PdfDocumentService();
-        $contractPath = $service->contractPath($loan['guid']);
-
-        if (is_file($contractPath)) {
-            return $this->response
-                ->setHeader('Content-Type', 'application/pdf')
-                ->setHeader('Content-Disposition', 'attachment; filename="contrato-' . ($loan['alias'] ?? $loan['guid']) . '.pdf"')
-                ->setBody((string) file_get_contents($contractPath));
-        }
+        $customer = $this->repository->getCustomer($loan['customer_guid']);
 
         return $this->downloadPdf(
             'pdf/contract',
@@ -115,11 +107,11 @@ class LoanDocumentController extends BaseController
                 'title' => 'Contrato de prestamo',
                 'loan' => $loan,
                 'application' => $application,
-                'customer' => $this->repository->getCustomer($loan['customer_guid']),
+                'customer' => $customer,
                 'installments' => $this->repository->getLoanInstallments($loan['guid']),
                 'collectionMethods' => $this->repository->getCollectionMethods(true),
             ],
-            'contrato-' . ($loan['alias'] ?? $loan['guid']) . '.pdf'
+            'contrato-' . $this->pdfFilenamePart($customer['full_name'] ?? 'cliente') . '-' . ($loan['alias'] ?? $loan['guid']) . '.pdf'
         );
     }
 
@@ -154,5 +146,13 @@ class LoanDocumentController extends BaseController
             ->setHeader('Content-Type', 'application/pdf')
             ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
             ->setBody($pdf);
+    }
+
+    private function pdfFilenamePart(string $value): string
+    {
+        $value = strtolower(trim($value));
+        $value = preg_replace('/[^a-z0-9]+/i', '-', $value) ?: 'cliente';
+
+        return trim($value, '-') ?: 'cliente';
     }
 }

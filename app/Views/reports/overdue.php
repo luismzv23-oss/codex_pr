@@ -13,6 +13,7 @@
                 <tr class="text-left text-xs uppercase tracking-[0.25em] text-slate-500">
                     <th class="px-4 py-4">Cuota</th>
                     <th class="px-4 py-4">Prestamo</th>
+                    <th class="px-4 py-4">Generacion</th>
                     <th class="px-4 py-4">Vencimiento</th>
                     <th class="px-4 py-4">Monto</th>
                     <th class="px-4 py-4">Late fee</th>
@@ -23,6 +24,7 @@
                     <tr class="text-sm">
                         <td class="px-4 py-4"><?= esc($item['installment_number']) ?></td>
                         <td class="px-4 py-4"><?= esc($item['loan_guid']) ?></td>
+                        <td class="px-4 py-4"><?= esc(date('d/m/Y', strtotime($item['generation_date'] ?? date('Y-m-01', strtotime($item['due_date']))))) ?></td>
                         <td class="px-4 py-4"><?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></td>
                         <td class="px-4 py-4"><?= esc(money($item['total_amount'])) ?></td>
                         <td class="px-4 py-4"><?= esc(money($item['late_fee'])) ?></td>

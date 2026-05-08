@@ -19,7 +19,7 @@ $routes->set404Override();
 // where controller filters or CSRF protection are bypassed.
 // If you don't want to define all routes, please use the Auto Routing (Improved).
 // Set `$autoRoutesImproved` to true in `app/Config/Feature.php` and set the following to true.
-// $routes->setAutoRoute(false);
+$routes->setAutoRoute(false);
 
 /*
  * --------------------------------------------------------------------
@@ -130,6 +130,13 @@ $routes->group('configuracion', ['filter' => 'session'], static function($routes
         $routes->post('(:segment)/toggle', 'SettingsController::toggleCollectionMethod/$1', ['filter' => 'permission:settings.manage']);
         $routes->delete('(:segment)', 'SettingsController::deleteCollectionMethod/$1', ['filter' => 'permission:settings.manage']);
     });
+});
+
+// Data Transfer (CSV export/import) — superadmin only
+$routes->group('datos', ['filter' => 'session'], static function($routes) {
+    $routes->get('/', 'DataTransferController::index', ['filter' => 'permission:data.export']);
+    $routes->get('exportar', 'DataTransferController::export', ['filter' => 'permission:data.export']);
+    $routes->post('importar', 'DataTransferController::import', ['filter' => 'permission:data.import']);
 });
 
 /*

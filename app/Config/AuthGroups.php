@@ -41,6 +41,10 @@ class AuthGroups extends ShieldAuthGroups
      * @see https://codeigniter4.github.io/shield/quick_start_guide/using_authorization/#change-available-groups for more info
      */
     public array $groups = [
+        'superadmin' => [
+            'title'       => 'Super Administrador',
+            'description' => 'Control total del sistema, incluyendo exportacion e importacion de datos.',
+        ],
         'admin' => [
             'title'       => 'Administrador',
             'description' => 'Acceso pleno a todas las funcionalidades del sistema.',
@@ -80,6 +84,8 @@ class AuthGroups extends ShieldAuthGroups
         'users.create'        => 'Registrar usuarios',
         'users.edit'          => 'Editar usuarios',
         'users.delete'        => 'Eliminar usuarios',
+        'data.export'         => 'Exportar tablas a CSV',
+        'data.import'         => 'Importar CSV a la base de datos',
     ];
 
     /**
@@ -91,6 +97,30 @@ class AuthGroups extends ShieldAuthGroups
      * This defines group-level permissions.
      */
     public array $matrix = [
+        'superadmin' => [
+            'admin.access',
+            'dashboard.view',
+            'customers.view',
+            'customers.manage',
+            'customers.delete',
+            'applications.view',
+            'applications.create',
+            'applications.manage',
+            'loans.view',
+            'loans.manage',
+            'payments.view',
+            'payments.collect',
+            'simulations.create',
+            'documents.download',
+            'reports.view',
+            'settings.manage',
+            'users.view',
+            'users.create',
+            'users.edit',
+            'users.delete',
+            'data.export',
+            'data.import',
+        ],
         'admin' => [
             'admin.access',
             'dashboard.view',

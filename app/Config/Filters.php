@@ -40,13 +40,13 @@ class Filters extends BaseConfig
         'before' => [
             // 'honeypot',
             'csrf',
-            // 'invalidchars',
+            'invalidchars',
             'session' => ['except' => ['login*', 'register', 'auth/a/*']],
         ],
         'after' => [
             'toolbar',
             // 'honeypot',
-            // 'secureheaders',
+            'secureheaders',
         ],
     ];
 

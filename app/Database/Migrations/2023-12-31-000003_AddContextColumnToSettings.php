@@ -8,14 +8,16 @@ class AddContextColumnToSettings extends Migration
 {
     public function up()
     {
-        $this->forge->addColumn('settings', [
-            'context' => [
-                'type'       => 'VARCHAR',
-                'constraint' => 255,
-                'null'       => true,
-                'after'      => 'type',
-            ],
-        ]);
+        if (! $this->db->fieldExists('context', 'settings')) {
+            $this->forge->addColumn('settings', [
+                'context' => [
+                    'type'       => 'VARCHAR',
+                    'constraint' => 255,
+                    'null'       => true,
+                    'after'      => 'type',
+                ],
+            ]);
+        }
     }
 
     public function down()

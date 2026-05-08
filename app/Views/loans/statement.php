@@ -61,6 +61,7 @@
                                 <thead class="bg-slate-50 dark:bg-slate-900/60">
                                     <tr class="text-left text-xs uppercase tracking-[0.25em] text-slate-500">
                                         <th class="px-4 py-4">Cuota</th>
+                                        <th class="px-4 py-4">Generada</th>
                                         <th class="px-4 py-4">Vence</th>
                                         <th class="px-4 py-4">Total</th>
                                         <th class="px-4 py-4">Pagado</th>
@@ -71,6 +72,7 @@
                                     <?php foreach ($group['items'] as $item): ?>
                                         <tr class="text-sm">
                                             <td class="px-4 py-4"><?= esc($item['installment_number']) ?></td>
+                                            <td class="px-4 py-4"><?= esc(date('d/m/Y', strtotime($item['generation_date'] ?? date('Y-m-01', strtotime($item['due_date']))))) ?></td>
                                             <td class="px-4 py-4"><?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></td>
                                             <td class="px-4 py-4"><?= esc(money($item['total_amount'], $item['currency'])) ?></td>
                                             <td class="px-4 py-4"><?= esc(money($item['paid_amount'], $item['currency'])) ?></td>
@@ -87,7 +89,7 @@
                                     <div class="flex items-start justify-between gap-3">
                                         <div>
                                             <p class="text-sm font-semibold text-slate-900 dark:text-white">Cuota <?= esc($item['installment_number']) ?></p>
-                                            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400"><?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></p>
+                                            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Generada <?= esc(date('d/m/Y', strtotime($item['generation_date'] ?? date('Y-m-01', strtotime($item['due_date']))))) ?> - vence <?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></p>
                                         </div>
                                         <span class="inline-flex rounded-full px-3 py-1 text-xs font-medium <?= esc(status_badge($item['status'])) ?>"><?= esc(status_label($item['status'])) ?></span>
                                     </div>

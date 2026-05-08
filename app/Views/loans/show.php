@@ -10,10 +10,14 @@
                 installmentGuid: item.guid,
                 installmentNumber: item.installmentNumber,
                 dueDate: item.dueDate,
-                amount: item.amount,
+                amount: window.__moneyFormat ? window.__moneyFormat(Number(item.amount)) : item.amount,
                 currency: item.currency
             };
             this.paymentModal = true;
+            this.$nextTick(() => {
+                const el = document.querySelector('[data-money-modal]');
+                if (el) { el.value = this.paymentForm.amount; }
+            });
         }
     }"
     class="page-transition space-y-6">
@@ -109,6 +113,7 @@
                     <thead class="bg-slate-50 dark:bg-slate-900/60">
                         <tr class="text-left text-xs uppercase tracking-[0.25em] text-slate-500">
                             <th class="px-4 py-3">Nro</th>
+                            <th class="px-4 py-3">Generada</th>
                             <th class="px-4 py-3">Vence</th>
                             <th class="px-4 py-3">Monto</th>
                             <th class="px-4 py-3">Pagado</th>
@@ -121,6 +126,7 @@
                         <?php foreach ($installments as $item): ?>
                             <tr class="text-sm">
                                 <td class="px-4 py-3"><?= esc($item['installment_number']) ?></td>
+                                <td class="px-4 py-3"><?= esc(date('d/m/Y', strtotime($item['generation_date'] ?? date('Y-m-01', strtotime($item['due_date']))))) ?></td>
                                 <td class="px-4 py-3"><?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></td>
                                 <td class="px-4 py-3"><?= esc(money($item['total_amount'], $loan['currency'])) ?></td>
                                 <td class="px-4 py-3"><?= esc(money($item['paid_amount'], $loan['currency'])) ?></td>
@@ -150,7 +156,7 @@
                                                 <a href="/prestamos/<?= esc($loan['guid']) ?>/cuotas/<?= esc($item['guid']) ?>/pdf" class="icon-action <?= icon_button_classes('ghost') ?>" title="Descargar cuota PDF" aria-label="Descargar cuota PDF">
                                                     <?= app_icon('pdf') ?>
                                                 </a>
-                                                <span class="text-xs text-slate-400"><?= $item['status'] === 'paid' ? 'Pagada' : 'Esperando cuota previa' ?></span>
+                                                <span class="text-xs text-slate-400"><?= $item['status'] === 'paid' ? 'Pagada' : 'Cuota previa' ?></span>
                                             </div>
                                         <?php endif; ?>
                                     </div>
@@ -167,7 +173,7 @@
                         <div class="flex items-start justify-between gap-3">
                             <div>
                                 <p class="text-sm font-semibold text-slate-900 dark:text-white">Cuota <?= esc($item['installment_number']) ?></p>
-                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Vence <?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></p>
+                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Generada <?= esc(date('d/m/Y', strtotime($item['generation_date'] ?? date('Y-m-01', strtotime($item['due_date']))))) ?> - vence <?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></p>
                             </div>
                             <span class="inline-flex rounded-full px-3 py-1 text-xs font-medium <?= esc(status_badge($item['status'])) ?>"><?= esc(status_label($item['status'])) ?></span>
                         </div>
@@ -208,7 +214,7 @@
                             </div>
                         </div>
                         <?php if (empty($item['can_generate_payment'])): ?>
-                            <p class="mt-3 text-right text-xs text-slate-400"><?= $item['status'] === 'paid' ? 'Pagada' : 'Esperando cuota previa' ?></p>
+                            <p class="mt-3 text-right text-xs text-slate-400"><?= $item['status'] === 'paid' ? 'Pagada' : 'Cuota previa' ?></p>
                         <?php endif; ?>
                     </article>
                 <?php endforeach; ?>
@@ -249,7 +255,7 @@
 
                 <label class="space-y-2">
                     <span class="text-sm font-medium">Monto a pagar</span>
-                    <input name="amount" x-model="paymentForm.amount" type="number" step="0.01" min="0.01" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900" required>
+                    <input name="amount" data-money data-money-modal :value="paymentForm.amount" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900" required>
                     <span class="block text-xs text-slate-500 dark:text-slate-400">Debe coincidir exactamente con el saldo pendiente de la cuota habilitada.</span>
                 </label>
 

@@ -44,9 +44,11 @@ class CreditSimulationController extends BaseController
                 return redirect()->back()->withInput()->with('errors', ['Sistema de amortizacion no disponible.']);
             }
 
+            $normalizedRate = round(((float) $input['interest_rate']) / 100, 6);
+
             $schedule = (new AmortizationService())->generateSchedule([
                 'principal_amount' => (float) $input['amount'],
-                'interest_rate' => (float) $input['interest_rate'],
+                'interest_rate' => $normalizedRate,
                 'term_months' => (int) $input['terms'],
                 'amortization_type' => $input['amortization_type'],
             ]);

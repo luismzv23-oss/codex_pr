@@ -17,7 +17,11 @@
             </tr>
             <tr>
                 <td><strong>Cuota:</strong> <?= esc($installment['installment_number']) ?></td>
+                <td><strong>Generacion:</strong> <?= esc(date('d/m/Y', strtotime($installment['generation_date'] ?? date('Y-m-01', strtotime($installment['due_date']))))) ?></td>
+            </tr>
+            <tr>
                 <td><strong>Vencimiento:</strong> <?= esc(date('d/m/Y', strtotime($installment['due_date']))) ?></td>
+                <td><strong>Estado:</strong> <?= esc(status_label($installment['status'])) ?></td>
             </tr>
         </table>
     </div>
@@ -30,7 +34,6 @@
                 <th>Total</th>
                 <th>Pagado</th>
                 <th>Saldo pendiente</th>
-                <th>Estado</th>
             </tr>
         </thead>
         <tbody>
@@ -40,7 +43,6 @@
                 <td><?= esc(money($installment['total_amount'], $installment['currency'])) ?></td>
                 <td><?= esc(money($installment['paid_amount'], $installment['currency'])) ?></td>
                 <td><?= esc(money($installment['amount_due'], $installment['currency'])) ?></td>
-                <td><?= esc(status_label($installment['status'])) ?></td>
             </tr>
         </tbody>
     </table>

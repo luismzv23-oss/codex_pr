@@ -53,6 +53,75 @@
         </div>
     </div>
 
+    <script>
+    (function () {
+        function parseArgNumber(str) {
+            if (typeof str !== 'string') return NaN;
+            str = str.replace(/\s/g, '');
+            if (str === '') return NaN;
+            var hasComma = str.indexOf(',') !== -1;
+            var dotCount = (str.match(/\./g) || []).length;
+            if (hasComma) {
+                str = str.replace(/\./g, '').replace(',', '.');
+            } else if (dotCount > 1) {
+                str = str.replace(/\./g, '');
+            }
+            return Number(str);
+        }
+
+        function formatArgNumber(num) {
+            if (isNaN(num)) return '';
+            var parts = num.toFixed(2).split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            return parts.join(',');
+        }
+
+        function handleInput(el) {
+            var raw = el.value;
+            var num = parseArgNumber(raw);
+            if (!isNaN(num)) {
+                var cursorEnd = el.selectionStart === el.value.length;
+                el.value = formatArgNumber(num);
+                if (cursorEnd) el.selectionStart = el.selectionEnd = el.value.length;
+            }
+        }
+
+        function initMoneyInputs(root) {
+            var inputs = (root || document).querySelectorAll('[data-money]');
+            inputs.forEach(function (el) {
+                if (el.dataset.moneyBound) return;
+                el.dataset.moneyBound = '1';
+                el.setAttribute('inputmode', 'decimal');
+                el.removeAttribute('type');
+
+                var raw = el.value;
+                if (raw !== '' && !isNaN(parseArgNumber(raw))) {
+                    el.value = formatArgNumber(parseArgNumber(raw));
+                }
+
+                el.addEventListener('blur', function () { handleInput(el); });
+            });
+        }
+
+        document.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (!form || form.tagName !== 'FORM') return;
+            form.querySelectorAll('[data-money]').forEach(function (el) {
+                var num = parseArgNumber(el.value);
+                el.value = isNaN(num) ? '' : num.toString();
+            });
+        }, true);
+
+        document.addEventListener('DOMContentLoaded', function () { initMoneyInputs(); });
+
+        var observer = new MutationObserver(function () { initMoneyInputs(); });
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        window.__moneyParse = parseArgNumber;
+        window.__moneyFormat = formatArgNumber;
+    })();
+    </script>
+
     <?= $this->renderSection('scripts') ?>
 </body>
 </html>

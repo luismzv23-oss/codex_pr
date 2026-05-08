@@ -12,7 +12,7 @@
         <div class="grid gap-6 md:grid-cols-2">
             <label class="space-y-2">
                 <span class="text-sm font-medium">Monto a solicitar</span>
-                <input type="number" step="0.01" min="0.01" name="amount" value="<?= esc(old('amount', $input['amount'])) ?>" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900" required>
+                <input data-money min="0.01" name="amount" value="<?= esc(old('amount', $input['amount'])) ?>" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900" required>
             </label>
             <label class="space-y-2">
                 <span class="text-sm font-medium">Tasa de Interes (%)</span>

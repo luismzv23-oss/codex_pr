@@ -27,7 +27,7 @@ class PaymentController extends BaseController
             'installment' => $installment,
             'loan' => $loan,
             'customer' => $customer,
-            'return_url' => $this->request->getGet('return') ?: '/pagos',
+            'return_url' => $this->safeReturnUrl($this->request->getGet('return')),
             'loans' => $this->repository->getLoans(),
             'customers' => $this->repository->getCustomers(),
         ]);
@@ -51,7 +51,7 @@ class PaymentController extends BaseController
             'loan_guid' => 'required',
             'installment_guid' => 'required',
             'customer_guid' => 'required',
-            'amount' => 'required|decimal',
+            'amount' => 'required|decimal|greater_than[0]',
             'currency' => 'required|exact_length[3]',
             'payment_method' => 'required|in_list[cash,transfer,card,check]',
         ];
@@ -60,7 +60,7 @@ class PaymentController extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $redirectTarget = $payload['return_url'] ?: '/pagos';
+        $redirectTarget = $this->safeReturnUrl($payload['return_url'] ?? null);
         unset($payload['return_url']);
 
         try {
@@ -70,5 +70,16 @@ class PaymentController extends BaseController
         } catch (Throwable $exception) {
             return redirect()->back()->withInput()->with('errors', [$exception->getMessage()]);
         }
+    }
+
+    private function safeReturnUrl($value): string
+    {
+        $value = trim((string) $value);
+
+        if ($value === '' || $value[0] !== '/' || str_starts_with($value, '//') || preg_match('#^[a-z][a-z0-9+.-]*:#i', $value)) {
+            return '/pagos';
+        }
+
+        return $value;
     }
 }

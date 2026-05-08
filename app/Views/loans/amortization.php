@@ -85,6 +85,8 @@
                         <tr class="text-left text-xs uppercase tracking-[0.25em] text-slate-500">
                             <th class="px-4 py-4">Prestamo</th>
                             <th class="px-4 py-4">Cuota</th>
+                            <th class="px-4 py-4">Generada</th>
+                            <th class="px-4 py-4">Vence</th>
                             <th class="px-4 py-4">Capital</th>
                             <th class="px-4 py-4">Interes</th>
                             <th class="px-4 py-4">Total</th>
@@ -101,8 +103,9 @@
                                 </td>
                                 <td class="px-4 py-4">
                                     <p class="font-medium"><?= esc($item['installment_number']) ?></p>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400"><?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></p>
                                 </td>
+                                <td class="px-4 py-4"><?= esc(date('d/m/Y', strtotime($item['generation_date'] ?? date('Y-m-01', strtotime($item['due_date']))))) ?></td>
+                                <td class="px-4 py-4"><?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></td>
                                 <td class="px-4 py-4"><?= esc(money($item['principal_amount'], $item['currency'])) ?></td>
                                 <td class="px-4 py-4"><?= esc(money($item['interest_amount'], $item['currency'])) ?></td>
                                 <td class="px-4 py-4"><?= esc(money($item['total_amount'], $item['currency'])) ?></td>
@@ -121,7 +124,7 @@
                         <div class="flex items-start justify-between gap-3">
                             <div>
                                 <a href="/prestamos/<?= esc($item['loan_guid']) ?>" class="text-sm font-semibold text-slate-900 dark:text-white"><?= esc($item['loan_label']) ?></a>
-                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Cuota <?= esc($item['installment_number']) ?> - <?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></p>
+                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Cuota <?= esc($item['installment_number']) ?> - generada <?= esc(date('d/m/Y', strtotime($item['generation_date'] ?? date('Y-m-01', strtotime($item['due_date']))))) ?> - vence <?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></p>
                             </div>
                             <span class="inline-flex rounded-full px-3 py-1 text-xs font-medium <?= esc(status_badge($item['status'])) ?>"><?= esc(status_label($item['status'])) ?></span>
                         </div>

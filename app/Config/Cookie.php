@@ -85,7 +85,7 @@ class Cookie extends BaseConfig
      * (empty string) means default SameSite attribute set by browsers (`Lax`)
      * will be set on cookies. If set to `None`, `$secure` must also be set.
      */
-    public string $samesite = 'Lax';
+    public string $samesite = 'Strict';
 
     /**
      * --------------------------------------------------------------------------

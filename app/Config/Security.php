@@ -24,7 +24,7 @@ class Security extends BaseConfig
      *
      * Randomize the CSRF Token for added security.
      */
-    public bool $tokenRandomize = false;
+    public bool $tokenRandomize = true;
 
     /**
      * --------------------------------------------------------------------------
@@ -80,7 +80,7 @@ class Security extends BaseConfig
      *
      * Redirect to previous page with error on failure.
      */
-    public bool $redirect = false;
+    public bool $redirect = true;
 
     /**
      * --------------------------------------------------------------------------
@@ -97,5 +97,5 @@ class Security extends BaseConfig
      *
      * @deprecated `Config\Cookie` $samesite property is used.
      */
-    public string $samesite = 'Lax';
+    public string $samesite = 'Strict';
 }

@@ -51,7 +51,7 @@
             <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                 <label class="space-y-2">
                     <span class="text-sm font-medium">Ingreso estimado</span>
-                    <input name="estimated_income" value="<?= old('estimated_income', $customer['estimated_income'] ?? '') ?>" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                    <input name="estimated_income" value="<?= old('estimated_income', $customer['estimated_income'] ?? '') ?>" data-money class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
                 </label>
                 <label class="space-y-2">
                     <span class="text-sm font-medium">Modo limite</span>
@@ -62,7 +62,7 @@
                 </label>
                 <label class="space-y-2">
                     <span class="text-sm font-medium">Limite de credito</span>
-                    <input name="credit_limit" value="<?= old('credit_limit', $customer['credit_limit'] ?? '0') ?>" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                    <input name="credit_limit" value="<?= old('credit_limit', $customer['credit_limit'] ?? '0') ?>" data-money class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
                 </label>
                 <label class="space-y-2">
                     <span class="text-sm font-medium">Estado crediticio</span>
@@ -81,7 +81,7 @@
                 </label>
                 <div class="space-y-2">
                     <span class="text-sm font-medium">Score de riesgo</span>
-                    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">Valor actual: <?= esc(number_format((float) $customer['risk_score'], 1)) ?> / 10. Este indice se recalcula automaticamente segun el comportamiento de pago.</div>
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">Valor actual: <?= esc(number_format((float) $customer['risk_score'], 1, ',', '.')) ?> / 10. Este indice se recalcula automaticamente segun el comportamiento de pago.</div>
                 </div>
                 <label class="space-y-2 md:col-span-2 xl:col-span-3">
                     <span class="text-sm font-medium">Notas</span>

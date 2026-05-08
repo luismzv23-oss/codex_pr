@@ -6,7 +6,7 @@
     <?= $this->include('pdf/_styles') ?>
 </head>
 <body>
-    <h1><?= esc($title) ?></h1>
+    <h1><?= esc($title) ?> - <?= esc($statement['customer']['full_name']) ?></h1>
     <p class="muted"><?= esc($statement['customer']['full_name']) ?> · <?= esc($statement['loan']['alias'] ?? $statement['loan']['guid']) ?></p>
 
     <table class="report">
@@ -16,17 +16,18 @@
         </tbody>
     </table>
 
-    <h2>Cuotas agrupadas por prestamo</h2>
+    <h2>Cuotas de <?= esc($statement['customer']['full_name']) ?> agrupadas por prestamo</h2>
     <?php foreach ($statement['installments_grouped'] as $group): ?>
         <h3><?= esc($group['loan']['alias'] ?? $group['loan']['guid'] ?? 'Prestamo') ?></h3>
         <table class="report">
             <thead>
-                <tr><th>Cuota</th><th>Vence</th><th>Total</th><th>Pagado</th><th>Estado</th></tr>
+                <tr><th>Cuota</th><th>Generada</th><th>Vence</th><th>Total</th><th>Pagado</th><th>Estado</th></tr>
             </thead>
             <tbody>
                 <?php foreach ($group['items'] as $item): ?>
                     <tr>
                         <td><?= esc($item['installment_number']) ?></td>
+                        <td><?= esc(date('d/m/Y', strtotime($item['generation_date'] ?? date('Y-m-01', strtotime($item['due_date']))))) ?></td>
                         <td><?= esc(date('d/m/Y', strtotime($item['due_date']))) ?></td>
                         <td><?= esc(money($item['total_amount'], $item['currency'])) ?></td>
                         <td><?= esc(money($item['paid_amount'], $item['currency'])) ?></td>

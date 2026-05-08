@@ -50,7 +50,7 @@
             <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                 <label class="space-y-2">
                     <span class="text-sm font-medium">Ingreso estimado</span>
-                    <input name="estimated_income" value="<?= old('estimated_income') ?>" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                    <input name="estimated_income" value="<?= old('estimated_income') ?>" data-money class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
                 </label>
                 <label class="space-y-2">
                     <span class="text-sm font-medium">Modo limite</span>
@@ -61,7 +61,7 @@
                 </label>
                 <label class="space-y-2">
                     <span class="text-sm font-medium">Limite de credito</span>
-                    <input name="credit_limit" value="<?= old('credit_limit', '0') ?>" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                    <input name="credit_limit" value="<?= old('credit_limit', '0') ?>" data-money class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
                 </label>
                 <label class="space-y-2">
                     <span class="text-sm font-medium">Estado crediticio</span>
