@@ -146,7 +146,7 @@ class AmortizationService
 
     private function normalizeMonthlyRate(float $rate): float
     {
-        return $rate > 1 ? ($rate / 100) : $rate;
+        return $rate;
     }
 
     private function resolveFirstGenerationDate($disbursedAt): string
