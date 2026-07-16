@@ -9,9 +9,38 @@ class PaymentController extends BaseController
 {
     public function index()
     {
+        $buscar = trim((string) $this->request->getGet('buscar'));
+        $metodo = trim((string) $this->request->getGet('metodo'));
+        $moneda = trim((string) $this->request->getGet('moneda'));
+
+        $payments = $this->repository->getPayments();
+
+        if ($buscar !== '') {
+            $payments = array_filter($payments, static function (array $payment) use ($buscar): bool {
+                return stripos($payment['customer_name'] ?? '', $buscar) !== false
+                    || stripos($payment['reference_number'] ?? '', $buscar) !== false
+                    || stripos($payment['loan_guid'] ?? '', $buscar) !== false;
+            });
+        }
+
+        if ($metodo !== '') {
+            $payments = array_filter($payments, static function (array $payment) use ($metodo): bool {
+                return ($payment['payment_method'] ?? '') === $metodo;
+            });
+        }
+
+        if ($moneda !== '') {
+            $payments = array_filter($payments, static function (array $payment) use ($moneda): bool {
+                return ($payment['currency'] ?? '') === $moneda;
+            });
+        }
+
         return view('payments/index', [
             'title' => 'Pagos',
-            'payments' => $this->repository->getPayments(),
+            'payments' => array_values($payments),
+            'buscar' => $buscar,
+            'metodo' => $metodo,
+            'moneda' => $moneda,
         ]);
     }
 

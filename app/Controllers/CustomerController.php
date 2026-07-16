@@ -6,9 +6,38 @@ class CustomerController extends BaseController
 {
     public function index()
     {
+        $buscar = trim((string) $this->request->getGet('buscar'));
+        $estado_crediticio = trim((string) $this->request->getGet('estado_crediticio'));
+        $estado_kyc = trim((string) $this->request->getGet('estado_kyc'));
+
+        $customers = $this->repository->getCustomers();
+
+        if ($buscar !== '') {
+            $customers = array_filter($customers, static function (array $customer) use ($buscar): bool {
+                return stripos($customer['full_name'] ?? '', $buscar) !== false
+                    || stripos($customer['email'] ?? '', $buscar) !== false
+                    || stripos($customer['dni'] ?? '', $buscar) !== false;
+            });
+        }
+
+        if ($estado_crediticio !== '') {
+            $customers = array_filter($customers, static function (array $customer) use ($estado_crediticio): bool {
+                return ($customer['credit_status'] ?? '') === $estado_crediticio;
+            });
+        }
+
+        if ($estado_kyc !== '') {
+            $customers = array_filter($customers, static function (array $customer) use ($estado_kyc): bool {
+                return ($customer['kyc_status'] ?? '') === $estado_kyc;
+            });
+        }
+
         return view('customers/index', [
             'title' => 'Clientes',
-            'customers' => $this->repository->getCustomers(),
+            'customers' => array_values($customers),
+            'buscar' => $buscar,
+            'estado_crediticio' => $estado_crediticio,
+            'estado_kyc' => $estado_kyc,
         ]);
     }
 

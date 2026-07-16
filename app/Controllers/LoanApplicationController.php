@@ -9,6 +9,11 @@ class LoanApplicationController extends BaseController
 {
     public function index()
     {
+        $buscar = trim((string) $this->request->getGet('buscar'));
+        $estado = trim((string) $this->request->getGet('estado'));
+        $moneda = trim((string) $this->request->getGet('moneda'));
+        $sistema = trim((string) $this->request->getGet('sistema'));
+
         $loansByApplication = [];
         foreach ($this->repository->getLoans() as $loan) {
             if (! empty($loan['application_guid'])) {
@@ -30,10 +35,38 @@ class LoanApplicationController extends BaseController
             }
         ));
 
+        if ($buscar !== '') {
+            $applications = array_filter($applications, static function (array $app) use ($buscar): bool {
+                return stripos($app['customer_name'] ?? '', $buscar) !== false;
+            });
+        }
+
+        if ($estado !== '') {
+            $applications = array_filter($applications, static function (array $app) use ($estado): bool {
+                return ($app['status'] ?? '') === $estado;
+            });
+        }
+
+        if ($moneda !== '') {
+            $applications = array_filter($applications, static function (array $app) use ($moneda): bool {
+                return ($app['currency'] ?? '') === $moneda;
+            });
+        }
+
+        if ($sistema !== '') {
+            $applications = array_filter($applications, static function (array $app) use ($sistema): bool {
+                return ($app['amortization_type'] ?? '') === $sistema;
+            });
+        }
+
         return view('loan_applications/index', [
             'title' => 'Solicitudes',
-            'applications' => $applications,
+            'applications' => array_values($applications),
             'customers' => $this->repository->getCustomers(),
+            'buscar' => $buscar,
+            'estado' => $estado,
+            'moneda' => $moneda,
+            'sistema' => $sistema,
         ]);
     }
 

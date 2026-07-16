@@ -10,12 +10,40 @@ class LoanController extends BaseController
     public function index()
     {
         $statusFilter = $this->request->getGet('estado') ?: 'active';
+        $buscar = trim((string) $this->request->getGet('buscar'));
+        $estado_detalle = trim((string) $this->request->getGet('estado_detalle'));
+        $moneda = trim((string) $this->request->getGet('moneda'));
+
+        $loans = $this->repository->getLoansByStatus($statusFilter);
+
+        if ($buscar !== '') {
+            $loans = array_filter($loans, static function (array $loan) use ($buscar): bool {
+                return stripos($loan['customer_name'] ?? '', $buscar) !== false
+                    || stripos($loan['guid'] ?? '', $buscar) !== false
+                    || stripos($loan['alias'] ?? '', $buscar) !== false;
+            });
+        }
+
+        if ($estado_detalle !== '') {
+            $loans = array_filter($loans, static function (array $loan) use ($estado_detalle): bool {
+                return ($loan['status'] ?? '') === $estado_detalle;
+            });
+        }
+
+        if ($moneda !== '') {
+            $loans = array_filter($loans, static function (array $loan) use ($moneda): bool {
+                return ($loan['currency'] ?? '') === $moneda;
+            });
+        }
 
         return view('loans/index', [
             'title' => 'Prestamos',
-            'loans' => $this->repository->getLoansByStatus($statusFilter),
+            'loans' => array_values($loans),
             'approvalQueue' => $this->repository->getApprovalQueue(),
             'statusFilter' => $statusFilter,
+            'buscar' => $buscar,
+            'estado_detalle' => $estado_detalle,
+            'moneda' => $moneda,
         ]);
     }
 
