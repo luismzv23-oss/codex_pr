@@ -57,6 +57,10 @@
         </div>
     </div>
 
+    <?php if (!empty($loan['first_collection_date'])): ?>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Fecha de referencia del primer cobro: <?= esc(date('d/m/Y', strtotime($loan['first_collection_date']))) ?></p>
+    <?php endif; ?>
+
     <div class="grid gap-6 lg:grid-cols-4">
         <div class="glass-card p-6">
             <p class="text-sm text-slate-500 dark:text-slate-400">Saldo pendiente</p>

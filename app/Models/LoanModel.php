@@ -15,7 +15,7 @@ class LoanModel extends BaseUuidModel
     protected $allowedFields    = [
         'application_guid', 'customer_guid', 'currency', 'principal_amount', 'interest_rate',
         'term_months', 'amortization_type', 'total_interest', 'total_payable',
-        'outstanding_balance', 'status', 'next_due_date', 'disbursed_at', 'closed_at'
+        'outstanding_balance', 'status', 'next_due_date', 'disbursed_at', 'closed_at', 'first_collection_date'
     ];
 
     protected $useTimestamps = true;

@@ -59,6 +59,8 @@
                 </div>
             <?php endif; ?>
 
+            <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">Primer cobro: <?= !empty($application['first_collection_date']) ? esc(date('d/m/Y', strtotime($application['first_collection_date']))) : 'Calendario automático (día 5)' ?></p>
+
             <?php if (! empty($application['rejection_reason'])): ?>
                 <div class="mt-6 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-200">
                     <?= esc($application['rejection_reason']) ?>
@@ -87,6 +89,13 @@
                         <input name="approved_amount" value="<?= esc($application['approved_amount'] ?? $application['requested_amount']) ?>" data-money class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
                     </label>
                     <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">Este paso genera el prestamo en el menu de prestamos y crea sus cuotas.</p>
+                    <?php if (!empty($application['first_collection_date']) && empty($application['linked_loan_guid']) && auth()->user()?->can('applications.schedule')): ?>
+                        <label class="mt-3 block space-y-2 text-sm">
+                            <span class="font-medium">Fecha de cobro</span>
+                            <input type="date" name="first_collection_date" required min="<?= \App\Services\FirstCollectionDateService::today() ?>" value="<?= esc(old('first_collection_date', $application['first_collection_date'], false), 'attr') ?>" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+                        </label>
+                        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Si la fecha quedó en el pasado, corregila antes de aprobar.</p>
+                    <?php endif; ?>
                     <button class="icon-action mt-4 <?= icon_button_classes('emerald') ?>" title="Aprobar y generar prestamo" aria-label="Aprobar y generar prestamo">
                         <?= app_icon('approve') ?>
                     </button>

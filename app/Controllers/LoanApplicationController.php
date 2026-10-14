@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Services\LoanWorkflowService;
+use App\Services\FirstCollectionDateService;
 use Throwable;
 
 class LoanApplicationController extends BaseController
@@ -73,6 +74,14 @@ class LoanApplicationController extends BaseController
             'source_customer_guid',
         ]);
         $payload['status'] = 'draft';
+        try {
+            $payload['first_collection_date'] = (new FirstCollectionDateService())->fromForm(
+                $this->request->getPost('custom_collection_date') === '1',
+                (string) $this->request->getPost('first_collection_date'), auth()->user()
+            );
+        } catch (Throwable $exception) {
+            return redirect()->back()->withInput()->with('errors', [$exception->getMessage()]);
+        }
 
         $rules = [
             'customer_guid' => 'required',
@@ -133,7 +142,8 @@ class LoanApplicationController extends BaseController
         }
 
         try {
-            $result = (new LoanWorkflowService())->approve($id, (float) $amount);
+            $override = $this->request->getPost('first_collection_date');
+            $result = (new LoanWorkflowService())->approve($id, (float) $amount, $override === null ? null : (string) $override);
 
             return redirect()->to('/prestamos/' . $result['loan_guid'])->with(
                 'message',

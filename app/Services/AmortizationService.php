@@ -127,12 +127,28 @@ class AmortizationService
             default => $this->calculateFrench($amount, $rate, $terms),
         };
 
-        $firstGenerationDate = $this->resolveFirstGenerationDate($loan['disbursed_at'] ?? null);
+        $customDate = trim((string) ($loan['first_collection_date'] ?? ''));
+        $firstCollection = null;
+        if ($customDate !== '') {
+            $firstCollection = \DateTimeImmutable::createFromFormat('!Y-m-d', $customDate);
+            if (!$firstCollection || $firstCollection->format('Y-m-d') !== $customDate) {
+                throw new \InvalidArgumentException('La fecha de cobro no es válida.');
+            }
+        }
+        $firstGenerationDate = $firstCollection ? $firstCollection->format('Y-m-01') : $this->resolveFirstGenerationDate($loan['disbursed_at'] ?? null);
 
         foreach ($schedule as $index => &$item) {
             $generationDate = date('Y-m-d', strtotime('+' . $index . ' month', strtotime($firstGenerationDate)));
             $item['generation_date'] = $generationDate;
-            $item['due_date'] = date('Y-m-05', strtotime($generationDate));
+            if ($firstCollection) {
+                // Anchor each installment to the original day; February must not
+                // permanently shift a day-31 schedule to the 28th.
+                $month = (new \DateTimeImmutable($firstGenerationDate))->modify('+' . $index . ' months');
+                $day = min((int) $firstCollection->format('j'), (int) $month->format('t'));
+                $item['due_date'] = $month->setDate((int) $month->format('Y'), (int) $month->format('n'), $day)->format('Y-m-d');
+            } else {
+                $item['due_date'] = date('Y-m-05', strtotime($generationDate));
+            }
         }
         unset($item);
 

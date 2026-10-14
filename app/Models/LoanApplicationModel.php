@@ -15,7 +15,7 @@ class LoanApplicationModel extends BaseUuidModel
     protected $allowedFields    = [
         'customer_guid', 'requested_amount', 'approved_amount', 'currency', 'interest_rate',
         'term_months', 'amortization_type', 'status', 'evaluated_by',
-        'approved_by', 'disbursed_at', 'rejection_reason', 'created_by'
+        'approved_by', 'disbursed_at', 'rejection_reason', 'created_by', 'first_collection_date'
     ];
 
     protected $useTimestamps = true;

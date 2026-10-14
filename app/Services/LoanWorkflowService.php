@@ -16,12 +16,18 @@ use Config\Database;
 
 class LoanWorkflowService
 {
+    private ?PdfDocumentService $documents;
+
+    public function __construct(?PdfDocumentService $documents = null)
+    {
+        $this->documents = $documents;
+    }
     public function submitForEvaluation($application): void
     {
         // TODO: Validate application, change status
     }
 
-    public function approve(string $applicationGuid, float $approvedAmount): array
+    public function approve(string $applicationGuid, float $approvedAmount, ?string $dateOverride = null): array
     {
         $db = Database::connect();
         $applicationModel = new LoanApplicationModel();
@@ -47,6 +53,14 @@ class LoanWorkflowService
             ];
         }
 
+        $datePolicy = new FirstCollectionDateService();
+        $firstCollectionDate = $application->first_collection_date ?? null;
+        if ($dateOverride !== null) {
+            $firstCollectionDate = $datePolicy->fromForm(true, $dateOverride, auth()->user());
+        } elseif ($firstCollectionDate !== null) {
+            $firstCollectionDate = $datePolicy->validate((string) $firstCollectionDate);
+        }
+        $disbursedAt = date('Y-m-d H:i:s');
         $approvedAmount = round($approvedAmount, 2);
         if ($approvedAmount <= 0) {
             throw new DatabaseException('El monto aprobado debe ser mayor a cero.');
@@ -57,7 +71,8 @@ class LoanWorkflowService
             'interest_rate' => (float) $application->interest_rate,
             'term_months' => (int) $application->term_months,
             'amortization_type' => (string) $application->amortization_type,
-            'disbursed_at' => date('Y-m-d H:i:s'),
+            'disbursed_at' => $disbursedAt,
+            'first_collection_date' => $firstCollectionDate,
         ]);
 
         if ($schedule === []) {
@@ -74,7 +89,8 @@ class LoanWorkflowService
             'approved_amount' => $approvedAmount,
             'approved_by' => auth()->id() ?: null,
             'evaluated_by' => auth()->id() ?: null,
-            'disbursed_at' => date('Y-m-d H:i:s'),
+            'disbursed_at' => $disbursedAt,
+            'first_collection_date' => $firstCollectionDate,
         ]);
 
         $loanModel->insert([
@@ -90,7 +106,8 @@ class LoanWorkflowService
             'outstanding_balance' => $totalPayable,
             'status' => 'active',
             'next_due_date' => $schedule[0]['due_date'],
-            'disbursed_at' => date('Y-m-d H:i:s'),
+            'disbursed_at' => $disbursedAt,
+            'first_collection_date' => $firstCollectionDate,
             'closed_at' => null,
         ]);
 
@@ -122,7 +139,7 @@ class LoanWorkflowService
             'entity_type' => 'loan_application',
             'entity_guid' => $applicationGuid,
             'old_values' => json_encode(['status' => $application->status, 'approved_amount' => $application->approved_amount]),
-            'new_values' => json_encode(['status' => 'approved', 'approved_amount' => $approvedAmount, 'loan_guid' => $loan->guid]),
+            'new_values' => json_encode(['status' => 'approved', 'approved_amount' => $approvedAmount, 'loan_guid' => $loan->guid, 'first_collection_date' => $firstCollectionDate]),
             'ip_address' => service('request')->getIPAddress(),
             'user_agent' => substr((string) service('request')->getUserAgent(), 0, 255),
         ]);
@@ -149,7 +166,8 @@ class LoanWorkflowService
                 $collections = [];
             }
 
-            $pdf = (new PdfDocumentService())->render('pdf/contract', [
+            $documents = $this->documents ?? new PdfDocumentService();
+            $pdf = $documents->render('pdf/contract', [
                 'title' => 'Contrato de prestamo',
                 'loan' => $loanData,
                 'application' => $applicationData,
@@ -158,7 +176,7 @@ class LoanWorkflowService
                 'collectionMethods' => $collections,
             ]);
 
-            (new PdfDocumentService())->saveContract($loan->guid, $pdf);
+            $documents->saveContract($loan->guid, $pdf);
         } catch (\Throwable) {
             // No interrumpe la aprobacion si el PDF del contrato falla.
         }

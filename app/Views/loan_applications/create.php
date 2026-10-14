@@ -63,6 +63,20 @@
             </label>
         </div>
 
+        <?php if (auth()->user()?->can('applications.schedule')): ?>
+            <?php $customCollectionDate = old('custom_collection_date', '', false) === '1'; ?>
+            <div data-collection-date class="space-y-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                <label class="flex items-center gap-3 text-sm font-medium">
+                    <input type="checkbox" name="custom_collection_date" value="1" data-collection-toggle <?= $customCollectionDate ? 'checked' : '' ?> class="h-4 w-4">
+                    Definir fecha de cobro
+                </label>
+                <div data-collection-field <?= $customCollectionDate ? '' : 'hidden' ?> class="space-y-2">
+                    <label for="first-collection-date" class="block text-sm font-medium">Fecha de cobro</label>
+                    <input id="first-collection-date" name="first_collection_date" type="date" min="<?= \App\Services\FirstCollectionDateService::today() ?>" value="<?= esc(old('first_collection_date', '', false), 'attr') ?>" <?= $customCollectionDate ? 'required' : 'disabled' ?> class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">La primera cuota vence en esta fecha. Las siguientes vencen mensualmente en el mismo día; si el mes no lo tiene, se usa su último día.</p>
+                </div>
+            </div>
+        <?php endif; ?>
         <div class="flex items-center justify-between">
             <a href="/solicitudes" class="text-sm text-slate-500 hover:text-slate-800 dark:hover:text-white">Volver</a>
             <button
@@ -77,4 +91,5 @@
 
 <?= $this->section('scripts') ?>
 <script defer src="<?= esc(base_url('assets/js/customer-select.js'), 'attr') ?>"></script>
+<script defer src="<?= esc(base_url('assets/js/first-collection-date.js'), 'attr') ?>"></script>
 <?= $this->endSection() ?>
