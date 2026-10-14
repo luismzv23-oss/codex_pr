@@ -9,27 +9,23 @@
 
     <form method="post" action="/solicitudes/guardar" class="glass-card space-y-6 p-8">
         <?= csrf_field() ?>
-        <?php $lockedCustomerGuid = old('customer_guid', $selectedCustomer['guid'] ?? ''); ?>
+        <?php $lockedCustomerGuid = old('customer_guid', $selectedCustomer['guid'] ?? '', false); ?>
         <div class="grid gap-6 md:grid-cols-2">
-            <label class="space-y-2 md:col-span-2">
-                <span class="text-sm font-medium">Cliente</span>
+            <div class="space-y-2 md:col-span-2">
+                <label for="customer-select" class="block text-sm font-medium">Cliente</label>
                 <?php if (!empty($selectedCustomer)): ?>
                     <input type="hidden" name="customer_guid" value="<?= esc($lockedCustomerGuid) ?>">
                     <input type="hidden" name="source_customer_guid" value="<?= esc($selectedCustomer['guid']) ?>">
                 <?php endif; ?>
-                <select name="<?= !empty($selectedCustomer) ? 'customer_guid_locked' : 'customer_guid' ?>"
-                    class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
-                    <?= !empty($selectedCustomer) ? 'disabled' : '' ?> required>
-                    <option value="">Seleccionar cliente</option>
-                    <?php foreach ($customers as $customer): ?>
-                        <option value="<?= esc($customer['guid']) ?>" <?= $lockedCustomerGuid === $customer['guid'] ? 'selected' : '' ?>><?= esc($customer['full_name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
+                <?= view('components/customer_select', [
+                    'customers' => $customers, 'selectedCustomer' => $selectedCustomer ?? null,
+                    'lockedCustomerGuid' => $lockedCustomerGuid,
+                ], ['saveData' => false]) ?>
                 <?php if (!empty($selectedCustomer)): ?>
                     <p class="text-xs text-slate-500 dark:text-slate-400">Esta solicitud queda vinculada a la ficha del
                         cliente seleccionada.</p>
                 <?php endif; ?>
-            </label>
+            </div>
             <label class="space-y-2">
                 <span class="text-sm font-medium">Monto a solicitar</span>
                 <input name="requested_amount" value="<?= old('requested_amount') ?>" data-money
@@ -77,4 +73,8 @@
         </div>
     </form>
 </div>
+<?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<script defer src="<?= esc(base_url('assets/js/customer-select.js'), 'attr') ?>"></script>
 <?= $this->endSection() ?>

@@ -14,6 +14,11 @@
                 <a href="/clientes/<?= esc($customer['guid']) ?>/editar" class="icon-action border-white/20 bg-white/10 text-white hover:bg-white/20" title="Editar cliente" aria-label="Editar cliente">
                     <?= app_icon('edit') ?>
                 </a>
+                <?php if (auth()->user()?->can('customers.delete')): ?>
+                <button type="button" data-delete-customer data-preview-url="<?= esc(site_url('clientes/' . $customer['guid'] . '/eliminacion'), 'attr') ?>" data-delete-url="<?= esc(site_url('clientes/' . $customer['guid']), 'attr') ?>" class="icon-action <?= icon_button_classes('rose') ?>" title="Eliminar cliente" aria-label="Eliminar cliente">
+                    <?= app_icon('reject') ?>
+                </button>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -87,4 +92,9 @@
         </div>
     </div>
 </div>
+<?= $this->include('customers/_delete_dialog') ?>
+<?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<script defer src="<?= esc(base_url('assets/js/customer-deletion.js'), 'attr') ?>"></script>
 <?= $this->endSection() ?>

@@ -107,6 +107,71 @@ class AppRepository
         ];
     }
 
+    /** Fetch only the requested page and aggregate its loan counts in one query. */
+    public function getCustomerPage(array $filters, int $page = 1): array
+    {
+        $perPage = 5;
+        $page = max(1, $page);
+        try {
+            $model = new CustomerModel();
+            $builder = $model->builder()->where('deleted_at', null);
+            if ($filters['buscar'] !== '') {
+                $builder->groupStart()
+                    ->like("CONCAT(first_name, ' ', last_name)", $filters['buscar'])
+                    ->orLike('email', $filters['buscar'])->orLike('dni', $filters['buscar'])
+                    ->groupEnd();
+            }
+            foreach (['estado_crediticio' => 'credit_status', 'estado_kyc' => 'kyc_status'] as $filter => $column) {
+                if ($filters[$filter] !== '') {
+                    $builder->where($column, $filters[$filter]);
+                }
+            }
+            $total = $builder->countAllResults(false);
+            $pages = max(1, (int) ceil($total / $perPage));
+            $page = min($page, $pages);
+            $customers = array_map([$this, 'normalize'], $builder
+                ->orderBy('created_at', 'DESC')->orderBy('guid', 'ASC')
+                ->limit($perPage, ($page - 1) * $perPage)->get()->getResultArray());
+            $counts = [];
+            if ($customers !== []) {
+                $rows = (new LoanModel())->builder()->select('customer_guid, COUNT(*) AS loan_count')
+                    ->where('deleted_at', null)->whereIn('customer_guid', array_column($customers, 'guid'))
+                    ->groupBy('customer_guid')->get()->getResultArray();
+                foreach ($rows as $row) {
+                    $counts[$row['customer_guid']] = (int) $row['loan_count'];
+                }
+            }
+        } catch (Throwable $exception) {
+            // Preserve the repository's existing demo behavior when the database is unavailable.
+            log_message('error', 'Customer pagination unavailable: {message}', ['message' => $exception->getMessage()]);
+            $demo = $this->fallbackData();
+            $customers = array_values(array_filter($demo['customers'], static function (array $customer) use ($filters): bool {
+                $matchesSearch = $filters['buscar'] === ''
+                    || stripos($customer['full_name'] ?? '', $filters['buscar']) !== false
+                    || stripos($customer['email'] ?? '', $filters['buscar']) !== false
+                    || stripos($customer['dni'] ?? '', $filters['buscar']) !== false;
+                return $matchesSearch
+                    && ($filters['estado_crediticio'] === '' || ($customer['credit_status'] ?? '') === $filters['estado_crediticio'])
+                    && ($filters['estado_kyc'] === '' || ($customer['kyc_status'] ?? '') === $filters['estado_kyc']);
+            }));
+            usort($customers, static fn(array $a, array $b): int => strcmp($b['created_at'], $a['created_at']) ?: strcmp($a['guid'], $b['guid']));
+            $total = count($customers);
+            $pages = max(1, (int) ceil($total / $perPage));
+            $page = min($page, $pages);
+            $customers = array_slice($customers, ($page - 1) * $perPage, $perPage);
+            $counts = array_count_values(array_column($demo['loans'], 'customer_guid'));
+        }
+        foreach ($customers as &$customer) {
+            $customer['loan_count'] = $counts[$customer['guid']] ?? 0;
+        }
+        unset($customer);
+        return ['customers' => $customers, 'pagination' => [
+            'page' => $page, 'per_page' => $perPage, 'total' => $total, 'pages' => $pages,
+            'from' => $total === 0 ? 0 : ($page - 1) * $perPage + 1,
+            'to' => min($page * $perPage, $total),
+        ]];
+    }
+
     public function getCustomers(): array
     {
         $customers = $this->safeFindAll(new CustomerModel(), 'customers');
@@ -139,6 +204,109 @@ class AppRepository
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /** Page and summaries share the same filters; loan totals include closed loans. */
+    public function getApplicationPage(array $filters, int $page = 1, ?\CodeIgniter\Database\BaseConnection $connection = null): array
+    {
+        $perPage = 6;
+        $page = max(1, $page);
+        $summary = ['draft' => 0, 'evaluation' => 0, 'approved' => 0];
+        try {
+            $db = $connection ?? \Config\Database::connect();
+            $closedLoans = $db->table('loans closed_loan')->select('1', false)
+                ->where('closed_loan.application_guid = a.guid', null, false)
+                ->where('closed_loan.deleted_at', null)->groupStart()
+                ->whereIn('closed_loan.status', ['paid', 'paid_off'])
+                ->orWhere('ROUND(COALESCE(closed_loan.outstanding_balance, 0), 2) <= 0', null, false)
+                ->groupEnd()->getCompiledSelect();
+            $customerName = "COALESCE(NULLIF(TRIM(CONCAT(c.first_name, ' ', c.last_name)), ''), 'Cliente no disponible')";
+            $builder = $db->table('loan_applications a')
+                ->join('customers c', 'c.guid = a.customer_guid AND c.deleted_at IS NULL', 'left')
+                ->where('a.deleted_at', null)->where('a.status !=', 'paid')
+                ->where('NOT EXISTS (' . $closedLoans . ')', null, false);
+            if ($filters['buscar'] !== '') {
+                // Preserve the previous literal substring search for %, _ and !.
+                $escape = $db->likeEscapeChar;
+                $match = str_replace([$escape, '%', '_'], [$escape . $escape, $escape . '%', $escape . '_'], $filters['buscar']);
+                $builder->like($customerName, $match);
+            }
+            foreach (['estado' => 'status', 'moneda' => 'currency', 'sistema' => 'amortization_type'] as $filter => $column) {
+                if ($filters[$filter] !== '') {
+                    $builder->where('a.' . $column, $filters[$filter]);
+                }
+            }
+            $totalsQuery = clone $builder;
+            // Keep shared connection aliases until the original page builder executes.
+            $totals = $totalsQuery->select('a.status, COUNT(*) AS total')->groupBy('a.status')->get(null, 0, false)->getResultArray();
+            $total = 0;
+            foreach ($totals as $row) {
+                $total += (int) $row['total'];
+                if (array_key_exists($row['status'], $summary)) {
+                    $summary[$row['status']] = (int) $row['total'];
+                }
+            }
+            $pages = max(1, (int) ceil($total / $perPage));
+            $page = min($page, $pages);
+            $applications = $builder->select('a.*, ' . $customerName . ' AS customer_name', false)
+                ->orderBy('a.created_at', 'DESC')->orderBy('a.guid', 'ASC')
+                ->limit($perPage, ($page - 1) * $perPage)->get()->getResultArray();
+            $loanCounts = [];
+            if ($applications !== []) {
+                $counts = $db->table('loans')->select('customer_guid, COUNT(*) AS loan_count')
+                    ->where('deleted_at', null)->whereIn('customer_guid', array_unique(array_column($applications, 'customer_guid')))
+                    ->groupBy('customer_guid')->get()->getResultArray();
+                foreach ($counts as $row) {
+                    $loanCounts[$row['customer_guid']] = (int) $row['loan_count'];
+                }
+            }
+        } catch (Throwable $exception) {
+            if ($connection !== null) {
+                // Explicit connections (integration tests) must never hide a query failure.
+                throw $exception;
+            }
+            log_message('error', 'Application pagination unavailable: {message}', ['message' => $exception->getMessage()]);
+            $summary = ['draft' => 0, 'evaluation' => 0, 'approved' => 0];
+            $demo = $this->fallbackData();
+            $names = [];
+            foreach ($demo['customers'] as $customer) {
+                $names[$customer['guid']] = $customer['full_name'];
+            }
+            $closed = [];
+            $loanCounts = [];
+            foreach ($demo['loans'] as $loan) {
+                if (!empty($loan['deleted_at'])) continue;
+                $loanCounts[$loan['customer_guid']] = ($loanCounts[$loan['customer_guid']] ?? 0) + 1;
+                if (in_array($loan['status'] ?? '', ['paid', 'paid_off'], true) || round((float) ($loan['outstanding_balance'] ?? 0), 2) <= 0) {
+                    $closed[$loan['application_guid'] ?? ''] = true;
+                }
+            }
+            $applications = [];
+            foreach ($demo['applications'] as $application) {
+                $application['customer_name'] = $names[$application['customer_guid']] ?? 'Cliente no disponible';
+                if (!empty($application['deleted_at']) || $application['status'] === 'paid' || isset($closed[$application['guid']])) continue;
+                if ($filters['buscar'] !== '' && stripos($application['customer_name'], $filters['buscar']) === false) continue;
+                if ($filters['estado'] !== '' && $application['status'] !== $filters['estado']) continue;
+                if ($filters['moneda'] !== '' && $application['currency'] !== $filters['moneda']) continue;
+                if ($filters['sistema'] !== '' && $application['amortization_type'] !== $filters['sistema']) continue;
+                $applications[] = $application;
+                if (array_key_exists($application['status'], $summary)) $summary[$application['status']]++;
+            }
+            usort($applications, static fn(array $a, array $b): int => strcmp($b['created_at'], $a['created_at']) ?: strcmp($a['guid'], $b['guid']));
+            $total = count($applications);
+            $pages = max(1, (int) ceil($total / $perPage));
+            $page = min($page, $pages);
+            $applications = array_slice($applications, ($page - 1) * $perPage, $perPage);
+        }
+        foreach ($applications as &$application) {
+            $application['loan_count'] = $loanCounts[$application['customer_guid']] ?? 0;
+        }
+        unset($application);
+        return ['applications' => $applications, 'summary' => $summary, 'pagination' => [
+            'page' => $page, 'per_page' => $perPage, 'total' => $total, 'pages' => $pages,
+            'from' => $total === 0 ? 0 : ($page - 1) * $perPage + 1,
+            'to' => min($page * $perPage, $total),
+        ]];
     }
 
     public function getApplications(): array
@@ -185,6 +353,76 @@ class AppRepository
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /** Keep the global alias numbering while loading full data for only six loans. */
+    public function getLoanPage(array $filters, int $page = 1, ?\CodeIgniter\Database\BaseConnection $connection = null): array
+    {
+        try {
+            $db = $connection ?? \Config\Database::connect();
+            // Aliases are generated globally, before status/search filters. Reading only
+            // their metadata avoids loading every balance and recalculating customer scores.
+            $metadata = $db->table('loans')->select('guid, customer_guid, created_at, disbursed_at, status, currency')
+                ->where('deleted_at', null)->get()->getResultArray();
+            $customers = $db->table('customers')->select('guid, first_name, last_name')
+                ->where('deleted_at', null)->get()->getResultArray();
+            $names = [];
+            foreach ($customers as $customer) {
+                $names[$customer['guid']] = trim($customer['first_name'] . ' ' . $customer['last_name']);
+            }
+            $data = $this->paginateLoanRows($metadata, $names, $filters, $page);
+            if ($data['loans'] !== []) {
+                $rows = $db->table('loans')->where('deleted_at', null)
+                    ->whereIn('guid', array_column($data['loans'], 'guid'))->get()->getResultArray();
+                $indexed = array_column($rows, null, 'guid');
+                $loans = [];
+                foreach ($data['loans'] as $metadataRow) {
+                    if (isset($indexed[$metadataRow['guid']])) {
+                        $loans[] = array_merge($indexed[$metadataRow['guid']], [
+                            'customer_name' => $metadataRow['customer_name'], 'alias' => $metadataRow['alias'],
+                        ]);
+                    }
+                }
+                $data['loans'] = $loans;
+            }
+            return $data;
+        } catch (Throwable $exception) {
+            if ($connection !== null) throw $exception;
+            log_message('error', 'Loan pagination unavailable: {message}', ['message' => $exception->getMessage()]);
+            $demo = $this->fallbackData();
+            $names = array_column($demo['customers'], 'full_name', 'guid');
+            return $this->paginateLoanRows($demo['loans'], $names, $filters, $page);
+        }
+    }
+
+    private function paginateLoanRows(array $loans, array $names, array $filters, int $page): array
+    {
+        $loans = array_values(array_filter($loans, static fn(array $loan): bool => empty($loan['deleted_at'])));
+        usort($loans, static fn(array $a, array $b): int => strcmp(
+            (string) ($a['created_at'] ?? $a['disbursed_at'] ?? ''),
+            (string) ($b['created_at'] ?? $b['disbursed_at'] ?? '')
+        ));
+        foreach ($loans as $index => &$loan) {
+            $loan['customer_name'] = $names[$loan['customer_guid']] ?? 'Cliente no disponible';
+            $loan['alias'] = loan_alias($index + 1, $loan['customer_name']);
+        }
+        unset($loan);
+        usort($loans, static fn(array $a, array $b): int => strcmp((string) ($b['disbursed_at'] ?? ''), (string) ($a['disbursed_at'] ?? '')));
+        $allowed = ($filters['estado'] ?? 'active') === 'cancelled' ? ['paid', 'paid_off'] : ['active', 'defaulted', 'restructured'];
+        $loans = array_values(array_filter($loans, static function (array $loan) use ($filters, $allowed): bool {
+            if (!in_array($loan['status'], $allowed, true)) return false;
+            if ($filters['estado_detalle'] !== '' && $loan['status'] !== $filters['estado_detalle']) return false;
+            if ($filters['moneda'] !== '' && $loan['currency'] !== $filters['moneda']) return false;
+            return $filters['buscar'] === '' || stripos($loan['customer_name'], $filters['buscar']) !== false
+                || stripos($loan['guid'], $filters['buscar']) !== false || stripos($loan['alias'], $filters['buscar']) !== false;
+        }));
+        $total = count($loans);
+        $pages = max(1, (int) ceil($total / 6));
+        $page = min(max(1, $page), $pages);
+        return ['loans' => array_slice($loans, ($page - 1) * 6, 6), 'pagination' => [
+            'page' => $page, 'per_page' => 6, 'total' => $total, 'pages' => $pages,
+            'from' => $total === 0 ? 0 : ($page - 1) * 6 + 1, 'to' => min($page * 6, $total),
+        ]];
     }
 
     public function getLoans(): array
@@ -346,6 +584,115 @@ class AppRepository
         usort($installments, static fn(array $a, array $b): int => strcmp($a['due_date'], $b['due_date']));
 
         return $installments;
+    }
+
+    /** Pagination counts customer groups, never individual payments. */
+    public function getPaymentGroupPage(array $filters, int $page = 1, ?\CodeIgniter\Database\BaseConnection $connection = null): array
+    {
+        try {
+            $db = $connection ?? \Config\Database::connect();
+            $names = [];
+            foreach ($db->table('customers')->select('guid, first_name, last_name')->where('deleted_at', null)->get()->getResultArray() as $customer) {
+                $names[$customer['guid']] = trim($customer['first_name'] . ' ' . $customer['last_name']);
+            }
+            $metadata = $db->table('loans')->select('guid, customer_guid, created_at, disbursed_at')
+                ->where('deleted_at', null)->get()->getResultArray();
+            $labels = $this->paymentLoanLabels($metadata, $names);
+            $builder = $db->table('payments p')->join('customers c', 'c.guid = p.customer_guid AND c.deleted_at IS NULL', 'left')
+                ->where('p.deleted_at', null);
+            if ($filters['buscar'] !== '') {
+                $escape = $db->likeEscapeChar;
+                $match = str_replace([$escape, '%', '_'], [$escape . $escape, $escape . '%', $escape . '_'], $filters['buscar']);
+                $matchingLoans = array_keys(array_filter($labels, static fn(string $label): bool => stripos($label, $filters['buscar']) !== false));
+                $builder->groupStart()->like("COALESCE(NULLIF(TRIM(CONCAT(c.first_name, ' ', c.last_name)), ''), 'Cliente no disponible')", $match)
+                    ->orLike('p.reference_number', $match)->orLike('p.loan_guid', $match);
+                if ($matchingLoans !== []) $builder->orWhereIn('p.loan_guid', $matchingLoans);
+                $builder->groupEnd();
+            }
+            if ($filters['metodo'] !== '') $builder->where('p.payment_method', $filters['metodo']);
+            if ($filters['moneda'] !== '') $builder->where('p.currency', $filters['moneda']);
+
+            // Retain shared aliases until all builders derived from this filter execute.
+            $countQuery = clone $builder;
+            $total = (int) $countQuery->select('COUNT(DISTINCT p.customer_guid) AS total', false)
+                ->get(null, 0, false)->getRowArray()['total'];
+            $pagination = $this->paymentGroupPagination($total, $page);
+            $groups = [];
+            if ($total > 0) {
+                $groupQuery = clone $builder;
+                $customers = $groupQuery->select('p.customer_guid, MAX(p.created_at) AS last_payment_at', false)
+                    ->groupBy('p.customer_guid')->orderBy('last_payment_at', 'DESC')->orderBy('p.customer_guid', 'ASC')
+                    ->limit(6, ($pagination['page'] - 1) * 6)->get(null, 0, false)->getResultArray();
+                $customerGuids = array_column($customers, 'customer_guid');
+                $payments = $builder->select('p.*')->whereIn('p.customer_guid', $customerGuids)
+                    ->orderBy('p.created_at', 'DESC')->orderBy('p.guid', 'ASC')->get()->getResultArray();
+                $groups = $this->buildPaymentGroups($payments, $names, $labels, $customerGuids);
+            }
+            return ['groups' => $groups, 'pagination' => $pagination];
+        } catch (Throwable $exception) {
+            if ($connection !== null) throw $exception;
+            log_message('error', 'Payment grouping unavailable: {message}', ['message' => $exception->getMessage()]);
+            $demo = $this->fallbackData();
+            $names = array_column($demo['customers'], 'full_name', 'guid');
+            $labels = $this->paymentLoanLabels($demo['loans'], $names);
+            $payments = array_values(array_filter($demo['payments'], static function (array $payment) use ($filters, $names, $labels): bool {
+                if (!empty($payment['deleted_at'])) return false;
+                if ($filters['metodo'] !== '' && $payment['payment_method'] !== $filters['metodo']) return false;
+                if ($filters['moneda'] !== '' && $payment['currency'] !== $filters['moneda']) return false;
+                return $filters['buscar'] === '' || stripos($names[$payment['customer_guid']] ?? 'Cliente no disponible', $filters['buscar']) !== false
+                    || stripos($payment['reference_number'] ?? '', $filters['buscar']) !== false
+                    || stripos($payment['loan_guid'] ?? '', $filters['buscar']) !== false
+                    || stripos($labels[$payment['loan_guid']] ?? '', $filters['buscar']) !== false;
+            }));
+            usort($payments, static fn(array $a, array $b): int => strcmp($b['created_at'], $a['created_at']) ?: strcmp($a['guid'], $b['guid']));
+            $latest = [];
+            foreach ($payments as $payment) $latest[$payment['customer_guid']] = max($latest[$payment['customer_guid']] ?? '', $payment['created_at']);
+            $customerGuids = array_keys($latest);
+            usort($customerGuids, static fn(string $a, string $b): int => strcmp($latest[$b], $latest[$a]) ?: strcmp($a, $b));
+            $pagination = $this->paymentGroupPagination(count($customerGuids), $page);
+            $customerGuids = array_slice($customerGuids, ($pagination['page'] - 1) * 6, 6);
+            $payments = array_values(array_filter($payments, static fn(array $payment): bool => in_array($payment['customer_guid'], $customerGuids, true)));
+            return ['groups' => $this->buildPaymentGroups($payments, $names, $labels, $customerGuids), 'pagination' => $pagination];
+        }
+    }
+
+    private function paymentLoanLabels(array $loans, array $names): array
+    {
+        $loans = array_values(array_filter($loans, static fn(array $loan): bool => empty($loan['deleted_at'])));
+        usort($loans, static fn(array $a, array $b): int => strcmp((string) ($a['created_at'] ?? $a['disbursed_at'] ?? ''), (string) ($b['created_at'] ?? $b['disbursed_at'] ?? '')));
+        $labels = [];
+        foreach ($loans as $index => $loan) $labels[$loan['guid']] = loan_alias($index + 1, $names[$loan['customer_guid']] ?? 'Cliente no disponible');
+        return $labels;
+    }
+
+    private function paymentGroupPagination(int $total, int $page): array
+    {
+        $pages = max(1, (int) ceil($total / 6));
+        $page = min(max(1, $page), $pages);
+        return ['page' => $page, 'per_page' => 6, 'total' => $total, 'pages' => $pages,
+            'from' => $total === 0 ? 0 : ($page - 1) * 6 + 1, 'to' => min($page * 6, $total)];
+    }
+
+    private function buildPaymentGroups(array $payments, array $names, array $labels, array $customerGuids): array
+    {
+        $groups = [];
+        foreach ($customerGuids as $guid) $groups[$guid] = ['guid' => $guid, 'name' => $names[$guid] ?? 'Cliente no disponible', 'payment_count' => 0, 'loans' => []];
+        foreach ($payments as $payment) {
+            $customer = &$groups[$payment['customer_guid']];
+            $loanGuid = (string) ($payment['loan_guid'] ?? '');
+            if (!isset($customer['loans'][$loanGuid])) {
+                $customer['loans'][$loanGuid] = ['guid' => $loanGuid, 'label' => $labels[$loanGuid] ?? ($loanGuid !== '' ? $loanGuid : 'Sin préstamo'), 'payments' => []];
+            }
+            $customer['loans'][$loanGuid]['payments'][] = $payment;
+            $customer['payment_count']++;
+            unset($customer);
+        }
+        foreach ($groups as &$group) {
+            $group['loan_count'] = count($group['loans']);
+            $group['loans'] = array_values($group['loans']);
+        }
+        unset($group);
+        return array_values($groups);
     }
 
     public function getPayments(): array

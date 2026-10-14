@@ -49,7 +49,7 @@
                                             <?= app_icon($user['active'] ? 'disable' : 'approve') ?>
                                         </button>
                                     </form>
-                                    <form method="post" action="/configuracion/usuarios/<?= esc($user['id']) ?>">
+                                    <form method="post" action="/configuracion/usuarios/<?= esc($user['id']) ?>" onsubmit="return confirm('¿Eliminar definitivamente esta cuenta de usuario?')">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="_method" value="DELETE">
                                         <button type="submit" class="icon-action <?= icon_button_classes('rose') ?>" title="Eliminar usuario" aria-label="Eliminar usuario">
@@ -88,6 +88,13 @@
                             <?= csrf_field() ?>
                             <button type="submit" class="icon-action <?= icon_button_classes($user['active'] ? 'rose' : 'emerald') ?>" title="<?= $user['active'] ? 'Desactivar usuario' : 'Activar usuario' ?>" aria-label="<?= $user['active'] ? 'Desactivar usuario' : 'Activar usuario' ?>">
                                 <?= app_icon($user['active'] ? 'disable' : 'approve') ?>
+                            </button>
+                        </form>
+                        <form method="post" action="/configuracion/usuarios/<?= esc($user['id']) ?>" onsubmit="return confirm('¿Eliminar definitivamente esta cuenta de usuario?')">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="_method" value="DELETE">
+                            <button type="submit" class="icon-action <?= icon_button_classes('rose') ?>" title="Eliminar usuario" aria-label="Eliminar usuario">
+                                <?= app_icon('reject') ?>
                             </button>
                         </form>
                         <?php endif; ?>

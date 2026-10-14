@@ -49,8 +49,10 @@ $routes->get('cuotas-pendientes', 'PendingInstallmentController::index', ['filte
 // Customers
 $routes->group('clientes', ['filter' => 'session'], static function($routes) {
     $routes->get('/', 'CustomerController::index', ['filter' => 'permission:customers.view']);
+    $routes->get('listado', 'CustomerController::listing', ['filter' => 'permission:customers.view']);
     $routes->get('crear', 'CustomerController::create', ['filter' => 'permission:customers.manage']);
     $routes->post('guardar', 'CustomerController::store', ['filter' => 'permission:customers.manage']);
+    $routes->get('(:segment)/eliminacion', 'CustomerController::deletionPreview/$1', ['filter' => 'permission:customers.delete']);
     $routes->get('(:segment)', 'CustomerController::show/$1', ['filter' => 'permission:customers.view']);
     $routes->get('(:segment)/editar', 'CustomerController::edit/$1', ['filter' => 'permission:customers.manage']);
     $routes->put('(:segment)', 'CustomerController::update/$1', ['filter' => 'permission:customers.manage']);
@@ -60,6 +62,7 @@ $routes->group('clientes', ['filter' => 'session'], static function($routes) {
 // Loan Applications
 $routes->group('solicitudes', ['filter' => 'session'], static function($routes) {
     $routes->get('/', 'LoanApplicationController::index', ['filter' => 'permission:applications.view']);
+    $routes->get('listado', 'LoanApplicationController::listing', ['filter' => 'permission:applications.view']);
     $routes->get('crear', 'LoanApplicationController::create', ['filter' => 'permission:applications.create']);
     $routes->post('guardar', 'LoanApplicationController::store', ['filter' => 'permission:applications.create']);
     $routes->get('(:segment)', 'LoanApplicationController::show/$1', ['filter' => 'permission:applications.view']);
@@ -73,6 +76,7 @@ $routes->group('solicitudes', ['filter' => 'session'], static function($routes) 
 // Loans
 $routes->group('prestamos', ['filter' => 'session'], static function($routes) {
     $routes->get('/', 'LoanController::index', ['filter' => 'permission:loans.view']);
+    $routes->get('listado', 'LoanController::listing', ['filter' => 'permission:loans.view']);
     $routes->get('(:segment)', 'LoanController::show/$1', ['filter' => 'permission:loans.view']);
     $routes->get('(:segment)/amortizacion', 'LoanController::amortization/$1', ['filter' => 'permission:loans.view']);
     $routes->get('(:segment)/estado-cuenta', 'LoanController::statement/$1', ['filter' => 'permission:loans.view']);
@@ -88,6 +92,7 @@ $routes->group('prestamos', ['filter' => 'session'], static function($routes) {
 // Payments
 $routes->group('pagos', ['filter' => 'session'], static function($routes) {
     $routes->get('/', 'PaymentController::index', ['filter' => 'permission:payments.view']);
+    $routes->get('listado', 'PaymentController::listing', ['filter' => 'permission:payments.view']);
     $routes->get('crear', 'PaymentController::create', ['filter' => 'permission:payments.collect']);
     $routes->get('crear/(:segment)', 'PaymentController::create/$1', ['filter' => 'permission:payments.collect']);
     $routes->post('guardar', 'PaymentController::store', ['filter' => 'permission:payments.collect']);

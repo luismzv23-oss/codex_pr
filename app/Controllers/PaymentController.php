@@ -9,39 +9,25 @@ class PaymentController extends BaseController
 {
     public function index()
     {
-        $buscar = trim((string) $this->request->getGet('buscar'));
-        $metodo = trim((string) $this->request->getGet('metodo'));
-        $moneda = trim((string) $this->request->getGet('moneda'));
+        return view('payments/index', array_merge(['title' => 'Pagos'], $this->paymentListData()));
+    }
 
-        $payments = $this->repository->getPayments();
-
-        if ($buscar !== '') {
-            $payments = array_filter($payments, static function (array $payment) use ($buscar): bool {
-                return stripos($payment['customer_name'] ?? '', $buscar) !== false
-                    || stripos($payment['reference_number'] ?? '', $buscar) !== false
-                    || stripos($payment['loan_guid'] ?? '', $buscar) !== false;
-            });
-        }
-
-        if ($metodo !== '') {
-            $payments = array_filter($payments, static function (array $payment) use ($metodo): bool {
-                return ($payment['payment_method'] ?? '') === $metodo;
-            });
-        }
-
-        if ($moneda !== '') {
-            $payments = array_filter($payments, static function (array $payment) use ($moneda): bool {
-                return ($payment['currency'] ?? '') === $moneda;
-            });
-        }
-
-        return view('payments/index', [
-            'title' => 'Pagos',
-            'payments' => array_values($payments),
-            'buscar' => $buscar,
-            'metodo' => $metodo,
-            'moneda' => $moneda,
+    public function listing()
+    {
+        $data = $this->paymentListData();
+        return $this->response->setHeader('Cache-Control', 'no-store')->setJSON([
+            'html' => view('payments/_listing', $data), 'pagination' => $data['pagination'],
         ]);
+    }
+
+    private function paymentListData(): array
+    {
+        $filters = [];
+        foreach (['buscar', 'metodo', 'moneda'] as $name) {
+            $filters[$name] = trim((string) $this->request->getGet($name));
+        }
+        $page = max(1, (int) $this->request->getGet('page'));
+        return array_merge($filters, $this->repository->getPaymentGroupPage($filters, $page));
     }
 
     public function create($installment_guid = null)

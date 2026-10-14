@@ -9,65 +9,27 @@ class LoanApplicationController extends BaseController
 {
     public function index()
     {
-        $buscar = trim((string) $this->request->getGet('buscar'));
-        $estado = trim((string) $this->request->getGet('estado'));
-        $moneda = trim((string) $this->request->getGet('moneda'));
-        $sistema = trim((string) $this->request->getGet('sistema'));
+        return view('loan_applications/index', array_merge(['title' => 'Solicitudes'], $this->applicationListData()));
+    }
 
-        $loansByApplication = [];
-        foreach ($this->repository->getLoans() as $loan) {
-            if (! empty($loan['application_guid'])) {
-                $loansByApplication[$loan['application_guid']] = $loan;
-            }
-        }
-
-        $applications = array_values(array_filter(
-            $this->repository->getApplications(),
-            static function (array $application) use ($loansByApplication): bool {
-                if (($application['status'] ?? '') === 'paid') {
-                    return false;
-                }
-
-                $loan = $loansByApplication[$application['guid']] ?? null;
-
-                return $loan === null
-                    || (! in_array(($loan['status'] ?? ''), ['paid', 'paid_off'], true) && round((float) ($loan['outstanding_balance'] ?? 0), 2) > 0);
-            }
-        ));
-
-        if ($buscar !== '') {
-            $applications = array_filter($applications, static function (array $app) use ($buscar): bool {
-                return stripos($app['customer_name'] ?? '', $buscar) !== false;
-            });
-        }
-
-        if ($estado !== '') {
-            $applications = array_filter($applications, static function (array $app) use ($estado): bool {
-                return ($app['status'] ?? '') === $estado;
-            });
-        }
-
-        if ($moneda !== '') {
-            $applications = array_filter($applications, static function (array $app) use ($moneda): bool {
-                return ($app['currency'] ?? '') === $moneda;
-            });
-        }
-
-        if ($sistema !== '') {
-            $applications = array_filter($applications, static function (array $app) use ($sistema): bool {
-                return ($app['amortization_type'] ?? '') === $sistema;
-            });
-        }
-
-        return view('loan_applications/index', [
-            'title' => 'Solicitudes',
-            'applications' => array_values($applications),
-            'customers' => $this->repository->getCustomers(),
-            'buscar' => $buscar,
-            'estado' => $estado,
-            'moneda' => $moneda,
-            'sistema' => $sistema,
+    public function listing()
+    {
+        $data = $this->applicationListData();
+        return $this->response->setHeader('Cache-Control', 'no-store')->setJSON([
+            'html' => view('loan_applications/_listing', $data),
+            'summary_html' => view('loan_applications/_summary', $data),
+            'pagination' => $data['pagination'],
         ]);
+    }
+
+    private function applicationListData(): array
+    {
+        $filters = [];
+        foreach (['buscar', 'estado', 'moneda', 'sistema'] as $name) {
+            $filters[$name] = trim((string) $this->request->getGet($name));
+        }
+        $page = max(1, (int) $this->request->getGet('page'));
+        return array_merge($filters, $this->repository->getApplicationPage($filters, $page));
     }
 
     public function show($id)

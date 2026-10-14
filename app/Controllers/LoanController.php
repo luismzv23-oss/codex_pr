@@ -9,42 +9,27 @@ class LoanController extends BaseController
 {
     public function index()
     {
-        $statusFilter = $this->request->getGet('estado') ?: 'active';
-        $buscar = trim((string) $this->request->getGet('buscar'));
-        $estado_detalle = trim((string) $this->request->getGet('estado_detalle'));
-        $moneda = trim((string) $this->request->getGet('moneda'));
+        return view('loans/index', array_merge([
+            'title' => 'Prestamos', 'approvalQueue' => $this->repository->getApprovalQueue(),
+        ], $this->loanListData()));
+    }
 
-        $loans = $this->repository->getLoansByStatus($statusFilter);
-
-        if ($buscar !== '') {
-            $loans = array_filter($loans, static function (array $loan) use ($buscar): bool {
-                return stripos($loan['customer_name'] ?? '', $buscar) !== false
-                    || stripos($loan['guid'] ?? '', $buscar) !== false
-                    || stripos($loan['alias'] ?? '', $buscar) !== false;
-            });
-        }
-
-        if ($estado_detalle !== '') {
-            $loans = array_filter($loans, static function (array $loan) use ($estado_detalle): bool {
-                return ($loan['status'] ?? '') === $estado_detalle;
-            });
-        }
-
-        if ($moneda !== '') {
-            $loans = array_filter($loans, static function (array $loan) use ($moneda): bool {
-                return ($loan['currency'] ?? '') === $moneda;
-            });
-        }
-
-        return view('loans/index', [
-            'title' => 'Prestamos',
-            'loans' => array_values($loans),
-            'approvalQueue' => $this->repository->getApprovalQueue(),
-            'statusFilter' => $statusFilter,
-            'buscar' => $buscar,
-            'estado_detalle' => $estado_detalle,
-            'moneda' => $moneda,
+    public function listing()
+    {
+        $data = $this->loanListData();
+        return $this->response->setHeader('Cache-Control', 'no-store')->setJSON([
+            'html' => view('loans/_listing', $data), 'pagination' => $data['pagination'],
         ]);
+    }
+
+    private function loanListData(): array
+    {
+        $filters = ['estado' => $this->request->getGet('estado') === 'cancelled' ? 'cancelled' : 'active'];
+        foreach (['buscar', 'estado_detalle', 'moneda'] as $name) {
+            $filters[$name] = trim((string) $this->request->getGet($name));
+        }
+        $page = max(1, (int) $this->request->getGet('page'));
+        return array_merge($filters, ['statusFilter' => $filters['estado']], $this->repository->getLoanPage($filters, $page));
     }
 
     public function show($id)

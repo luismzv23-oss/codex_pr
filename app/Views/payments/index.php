@@ -11,10 +11,10 @@
             <?= app_icon('cash') ?>
         </a>
     </div>
-    <form method="get" action="/pagos" class="glass-card grid gap-4 p-5 sm:grid-cols-2 md:grid-cols-4 items-end">
+    <form id="payments-filters" method="get" action="/pagos" class="glass-card grid gap-4 p-5 sm:grid-cols-2 md:grid-cols-4 items-end">
         <label class="space-y-2">
             <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Buscar</span>
-            <input type="text" name="buscar" value="<?= esc($buscar) ?>" placeholder="Cliente, referencia, préstamo..." class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+            <input type="text" name="buscar" value="<?= esc($buscar) ?>" placeholder="Cliente, referencia, ID o código de préstamo..." class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none">
         </label>
         <label class="space-y-2">
             <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Método de Pago</span>
@@ -39,48 +39,25 @@
                 <?= app_icon('filter', 'h-4 w-4') ?>
                 <span>Filtrar</span>
             </button>
-            <?php if ($buscar !== '' || $metodo !== '' || $moneda !== ''): ?>
-                <a href="/pagos" class="inline-flex items-center justify-center p-2.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800" title="Limpiar filtros">
+
+                <a data-clear-filters href="/pagos" class="inline-flex items-center justify-center p-2.5 rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800" title="Limpiar filtros">
                     <?= app_icon('close', 'h-5 w-5') ?>
                 </a>
-            <?php endif; ?>
+
         </div>
     </form>
 
-    <div class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-            <thead class="bg-slate-50 dark:bg-slate-900/60">
-                <tr class="text-left text-xs uppercase tracking-[0.25em] text-slate-500">
-                    <th class="px-6 py-4">Cliente</th>
-                    <th class="px-6 py-4">Monto</th>
-                    <th class="px-6 py-4">Metodo</th>
-                    <th class="px-6 py-4">Referencia</th>
-                    <th class="px-6 py-4">Fecha</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-                <?php if ($payments === []): ?>
-                    <tr>
-                        <td colspan="5" class="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
-                            No se encontraron registros de pago para los filtros seleccionados.
-                        </td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($payments as $payment): ?>
-                        <tr class="text-sm">
-                            <td class="px-6 py-4">
-                                <p class="font-medium text-slate-900 dark:text-white"><?= esc($payment['customer_name']) ?></p>
-                                <p class="text-slate-500 dark:text-slate-400"><?= esc($payment['loan_guid']) ?></p>
-                            </td>
-                            <td class="px-6 py-4"><?= esc(money($payment['amount'], $payment['currency'])) ?></td>
-                            <td class="px-6 py-4"><?= esc(ucfirst($payment['payment_method'])) ?></td>
-                            <td class="px-6 py-4 text-slate-500 dark:text-slate-400"><?= esc($payment['reference_number'] ?: '-') ?></td>
-                            <td class="px-6 py-4 text-slate-500 dark:text-slate-400"><?= esc(date('d/m/Y H:i', strtotime($payment['created_at']))) ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
+    <p id="payments-error" role="alert" class="hidden text-sm text-red-600 dark:text-red-400"></p>
+    <div id="payments-list" class="space-y-4" data-page="<?= (int) $pagination['page'] ?>" data-endpoint="<?= esc(site_url('pagos/listado'), 'attr') ?>">
+        <?= $this->include('payments/_listing') ?>
     </div>
 </div>
+<?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<style>
+    #payments-list details[open] > summary .payment-chevron { transform: rotate(90deg); }
+    #payments-list summary::-webkit-details-marker { display: none; }
+</style>
+<script defer src="<?= esc(base_url('assets/js/payments.js'), 'attr') ?>"></script>
 <?= $this->endSection() ?>
