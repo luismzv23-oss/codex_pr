@@ -14,6 +14,7 @@ class DashboardController extends BaseController
         return view('dashboard/index', [
             'title' => 'Dashboard',
             'dashboard' => $this->repository->getDashboardData(),
+            'approvedMonth' => $this->repository->getApprovedLoansSummary(date('Y-m-01'), date('Y-m-d')),
         ]);
     }
 }

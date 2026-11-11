@@ -34,7 +34,7 @@
         </div>
     </section>
 
-    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <div class="glass-card p-6">
             <p class="text-sm text-slate-500 dark:text-slate-400">Clientes</p>
             <p class="mt-3 text-3xl font-semibold"><?= esc($dashboard['stats']['customers']) ?></p>
@@ -51,6 +51,20 @@
             <p class="text-sm text-slate-500 dark:text-slate-400">Ingresos registrados</p>
             <p class="mt-3 text-3xl font-semibold"><?= esc(money($dashboard['stats']['monthly_income'])) ?></p>
         </div>
+        <?php
+            $canSeeReports = auth()->user()?->can('reports.view') ?? false;
+            $approvedUrl = '/reportes/dashboard?desde=' . rawurlencode($approvedMonth['from']) . '&hasta=' . rawurlencode($approvedMonth['to']);
+            $approvedOpenTag = $canSeeReports
+                ? '<a href="' . esc($approvedUrl, 'attr') . '" class="glass-card block p-6 transition hover:ring-2 hover:ring-sky-500/40" title="Ver reporte de prestamos aprobados">'
+                : '<div class="glass-card p-6">';
+        ?>
+        <?= $approvedOpenTag ?>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Aprobados este mes</p>
+            <p class="mt-3 text-3xl font-semibold"><?= esc($approvedMonth['count']) ?></p>
+            <?php foreach ($approvedMonth['by_currency'] as $currency => $totals): ?>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400"><?= esc(money($totals['principal'], $currency)) ?></p>
+            <?php endforeach; ?>
+        </<?= $canSeeReports ? 'a' : 'div' ?>>
     </section>
 
     <section class="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
@@ -67,17 +81,33 @@
             <div id="chart-evolution" class="mt-6"></div>
         </div>
 
-        <div class="glass-card p-6">
+        <?php $activityPages = max(1, (int) ceil(count($dashboard['recent_activity']) / 3)); ?>
+        <div class="glass-card flex flex-col p-6" x-data="{ page: 1, pages: <?= $activityPages ?>, perPage: 3 }">
             <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Actividad reciente</h2>
-            <div class="mt-6 space-y-4">
-                <?php foreach ($dashboard['recent_activity'] as $event): ?>
-                    <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+            <div class="mt-6 flex-1 space-y-4">
+                <?php if ($dashboard['recent_activity'] === []): ?>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Sin actividad registrada.</p>
+                <?php endif; ?>
+                <?php foreach ($dashboard['recent_activity'] as $index => $event): ?>
+                    <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/40"
+                         x-show="Math.floor(<?= (int) $index ?> / perPage) + 1 === page"<?= $index >= 3 ? ' style="display: none"' : '' ?>>
                         <p class="text-sm font-medium text-slate-900 dark:text-white"><?= esc($event['action']) ?></p>
                         <p class="mt-1 text-xs text-slate-500 dark:text-slate-400"><?= esc($event['entity_type']) ?> · <?= esc($event['entity_guid']) ?></p>
                         <p class="mt-2 text-xs text-slate-400 dark:text-slate-500"><?= esc(date('d/m/Y H:i', strtotime($event['created_at']))) ?></p>
                     </div>
                 <?php endforeach; ?>
             </div>
+            <?php if ($activityPages > 1): ?>
+                <div class="mt-6 flex items-center justify-between text-sm">
+                    <button type="button" @click="page--" :disabled="page === 1"
+                            class="rounded-xl border border-slate-200 px-3 py-1.5 text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                            aria-label="Pagina anterior">&lsaquo; Anterior</button>
+                    <span class="text-xs text-slate-500 dark:text-slate-400" x-text="'Pagina ' + page + ' de ' + pages">Pagina 1 de <?= $activityPages ?></span>
+                    <button type="button" @click="page++" :disabled="page === pages"
+                            class="rounded-xl border border-slate-200 px-3 py-1.5 text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                            aria-label="Pagina siguiente">Siguiente &rsaquo;</button>
+                </div>
+            <?php endif; ?>
         </div>
     </section>
 </div>

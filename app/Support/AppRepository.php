@@ -103,7 +103,159 @@ class AppRepository
                     ],
                 ],
             ],
-            'recent_activity' => array_slice($auditLogs, 0, 5),
+            'recent_activity' => array_slice($auditLogs, 0, 30),
+        ];
+    }
+
+    /**
+     * Normalize a Y-m-d date range: invalid/missing dates fall back to the current
+     * month (day 1 to today) and reversed ranges are swapped.
+     */
+    public static function normalizeDateRange(?string $from, ?string $to, ?string $today = null): array
+    {
+        $today = $today ?? date('Y-m-d');
+        $valid = static function (?string $value): ?string {
+            $value = trim((string) $value);
+            $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+            return ($date !== false && $date->format('Y-m-d') === $value) ? $value : null;
+        };
+
+        $from = $valid($from) ?? substr($today, 0, 8) . '01';
+        $to = $valid($to) ?? $today;
+        if ($from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+
+        return [$from, $to];
+    }
+
+    /** Quick-pick ranges for the approved loans report, relative to $today (Y-m-d). */
+    public static function approvedLoansPresets(?string $today = null): array
+    {
+        $now = new \DateTimeImmutable($today ?? date('Y-m-d'));
+        $prev = $now->modify('first day of last month');
+
+        return [
+            'Este mes' => [$now->format('Y-m-01'), $now->format('Y-m-d')],
+            'Mes anterior' => [$prev->format('Y-m-01'), $prev->format('Y-m-t')],
+            'Ultimos 30 dias' => [$now->modify('-29 days')->format('Y-m-d'), $now->format('Y-m-d')],
+            'Este año' => [$now->format('Y-01-01'), $now->format('Y-m-d')],
+        ];
+    }
+
+    /**
+     * Totals of loans approved (loan created / disbursed_at) between $from and $to
+     * inclusive, grouped by currency. Amounts are never summed across currencies.
+     */
+    public function getApprovedLoansSummary(string $from, string $to, ?\CodeIgniter\Database\BaseConnection $connection = null): array
+    {
+        [$from, $to] = self::normalizeDateRange($from, $to);
+        $start = $from . ' 00:00:00';
+        $end = date('Y-m-d', strtotime($to . ' +1 day')) . ' 00:00:00';
+
+        try {
+            $db = $connection ?? \Config\Database::connect();
+            $loans = $db->table('loans')
+                ->select('guid, currency, principal_amount, total_interest, total_payable, outstanding_balance, disbursed_at')
+                ->where('deleted_at', null)
+                ->where('disbursed_at >=', $start)
+                ->where('disbursed_at <', $end)
+                ->get()->getResultArray();
+
+            // Collected = sum of registered payments for these loans (any payment date).
+            $collected = [];
+            foreach (array_chunk(array_column($loans, 'guid'), 500) as $guids) {
+                $rows = $db->table('payments')->select('loan_guid')->selectSum('amount', 'collected')
+                    ->where('deleted_at', null)->whereIn('loan_guid', $guids)
+                    ->groupBy('loan_guid')->get()->getResultArray();
+                foreach ($rows as $row) {
+                    $collected[$row['loan_guid']] = (float) $row['collected'];
+                }
+            }
+        } catch (Throwable $exception) {
+            if ($connection !== null) throw $exception;
+            log_message('error', 'Approved loans summary unavailable: {message}', ['message' => $exception->getMessage()]);
+            $demo = $this->fallbackData();
+            $loans = array_values(array_filter($demo['loans'], static function (array $loan) use ($start, $end): bool {
+                $date = (string) ($loan['disbursed_at'] ?? '');
+                return empty($loan['deleted_at']) && $date >= $start && $date < $end;
+            }));
+            $collected = [];
+            foreach ($demo['payments'] as $payment) {
+                if (empty($payment['deleted_at'])) {
+                    $collected[$payment['loan_guid']] = ($collected[$payment['loan_guid']] ?? 0.0) + (float) $payment['amount'];
+                }
+            }
+        }
+
+        foreach ($loans as &$loan) {
+            $loan['collected'] = $collected[$loan['guid'] ?? ''] ?? 0.0;
+        }
+        unset($loan);
+
+        return $this->summarizeApprovedLoans($loans, $from, $to);
+    }
+
+    private function summarizeApprovedLoans(array $loans, string $from, string $to): array
+    {
+        $months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        $daily = (strtotime($to) - strtotime($from)) / 86400 < 62;
+        $buckets = [];
+        $cursor = new \DateTimeImmutable($daily ? $from : substr($from, 0, 7) . '-01');
+        $last = new \DateTimeImmutable($to);
+        while ($cursor <= $last) {
+            $key = $cursor->format($daily ? 'Y-m-d' : 'Y-m');
+            $month = $months[(int) $cursor->format('n') - 1];
+            $buckets[$key] = $daily ? $cursor->format('d') . ' ' . $month : $month . ' ' . $cursor->format('Y');
+            $cursor = $cursor->modify($daily ? '+1 day' : '+1 month');
+        }
+
+        $byCurrency = [];
+        $series = [];
+        foreach ($loans as $loan) {
+            $currency = (string) ($loan['currency'] ?? 'ARS');
+            $byCurrency[$currency] ??= ['count' => 0, 'principal' => 0.0, 'interest' => 0.0, 'payable' => 0.0, 'collected' => 0.0, 'outstanding' => 0.0];
+            $totals = &$byCurrency[$currency];
+            $totals['count']++;
+            $totals['principal'] += (float) ($loan['principal_amount'] ?? 0);
+            $totals['interest'] += (float) ($loan['total_interest'] ?? 0);
+            $totals['payable'] += (float) ($loan['total_payable'] ?? 0);
+            $totals['collected'] += (float) ($loan['collected'] ?? 0);
+            $totals['outstanding'] += (float) ($loan['outstanding_balance'] ?? 0);
+            unset($totals);
+
+            $key = date($daily ? 'Y-m-d' : 'Y-m', strtotime((string) $loan['disbursed_at']));
+            $series[$currency] ??= array_fill_keys(array_keys($buckets), 0.0);
+            if (isset($series[$currency][$key])) {
+                $series[$currency][$key] += (float) ($loan['principal_amount'] ?? 0);
+            }
+        }
+
+        ksort($byCurrency);
+        foreach ($byCurrency as &$totals) {
+            foreach (['principal', 'interest', 'payable', 'collected', 'outstanding'] as $field) {
+                $totals[$field] = round($totals[$field], 2);
+            }
+            $totals['avg_ticket'] = round($totals['principal'] / $totals['count'], 2);
+            $totals['collected_pct'] = $totals['payable'] > 0 ? round($totals['collected'] / $totals['payable'] * 100, 1) : 0.0;
+        }
+        unset($totals);
+        ksort($series);
+
+        return [
+            'from' => $from,
+            'to' => $to,
+            'count' => array_sum(array_column($byCurrency, 'count')),
+            'by_currency' => $byCurrency,
+            'chart' => [
+                'granularity' => $daily ? 'day' : 'month',
+                'labels' => array_values($buckets),
+                'series' => array_map(
+                    static fn(string $currency, array $data): array => ['name' => $currency, 'data' => array_map(static fn(float $v): float => round($v, 2), array_values($data))],
+                    array_keys($series),
+                    array_values($series)
+                ),
+            ],
         ];
     }
 
