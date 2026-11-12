@@ -2,6 +2,8 @@
 
 namespace App\Controllers;
 
+use App\Support\AppRepository;
+
 class DashboardController extends BaseController
 {
     public function index()
@@ -11,10 +13,17 @@ class DashboardController extends BaseController
             return redirect()->to('/cuotas-pendientes');
         }
 
+        [$from, $to] = AppRepository::normalizeDateRange(
+            $this->request->getGet('desde'),
+            $this->request->getGet('hasta')
+        );
+
         return view('dashboard/index', [
             'title' => 'Dashboard',
             'dashboard' => $this->repository->getDashboardData(),
-            'approvedMonth' => $this->repository->getApprovedLoansSummary(date('Y-m-01'), date('Y-m-d')),
+            'approvedMonth' => $this->repository->getApprovedLoansSummary($from, $to),
+            'collection' => $this->repository->getCollectionSummary($from, $to),
+            'presets' => AppRepository::approvedLoansPresets(),
         ]);
     }
 }

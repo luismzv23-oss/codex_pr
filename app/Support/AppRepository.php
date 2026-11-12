@@ -147,6 +147,177 @@ class AppRepository
      * Totals of loans approved (loan created / disbursed_at) between $from and $to
      * inclusive, grouped by currency. Amounts are never summed across currencies.
      */
+    /**
+     * Portfolio snapshot as of the end of $asOf: customers, open loans, overdue balance
+     * (per currency: current paid amount minus payments received after that date) and installments due in the
+     * following 7 days. The late fee is taken at its current value.
+     */
+    public function getPortfolioSnapshot(string $asOf, ?\CodeIgniter\Database\BaseConnection $connection = null): array
+    {
+        [, $asOf] = self::normalizeDateRange($asOf, $asOf);
+        $end = date('Y-m-d', strtotime($asOf . ' +1 day')) . ' 00:00:00';
+        $upcomingTo = date('Y-m-d', strtotime($asOf . ' +7 days'));
+
+        try {
+            $db = $connection ?? \Config\Database::connect();
+            $customers = $db->table('customers')->where('deleted_at', null)->where('created_at <', $end)->countAllResults();
+            $loans = $db->table('loans')->select('guid, currency, closed_at')
+                ->where('deleted_at', null)->where('disbursed_at <', $end)
+                ->groupStart()->where('closed_at', null)->orWhere('closed_at >=', $end)->groupEnd()
+                ->get()->getResultArray();
+            $installments = $db->table('installments i')
+                ->select('i.guid, i.due_date, i.total_amount, i.late_fee, i.paid_amount, l.currency')
+                ->join('loans l', 'l.guid = i.loan_guid')
+                ->where('i.deleted_at', null)->where('l.deleted_at', null)
+                ->where('i.due_date <=', $upcomingTo)
+                ->get()->getResultArray();
+            $laterRows = $db->table('payments')->select('installment_guid')->selectSum('amount', 'paid')
+                ->where('deleted_at', null)->where('created_at >=', $end)
+                ->groupBy('installment_guid')->get()->getResultArray();
+            $paidLater = array_map('floatval', array_column($laterRows, 'paid', 'installment_guid'));
+        } catch (Throwable $exception) {
+            if ($connection !== null) throw $exception;
+            log_message('error', 'Portfolio snapshot unavailable: {message}', ['message' => $exception->getMessage()]);
+            $demo = $this->fallbackData();
+            $customers = count(array_filter($demo['customers'], static fn(array $c): bool => empty($c['deleted_at']) && (string) ($c['created_at'] ?? '') < $end));
+            $loans = array_values(array_filter($demo['loans'], static fn(array $l): bool => empty($l['deleted_at'])
+                && (string) ($l['disbursed_at'] ?? '') < $end && (empty($l['closed_at']) || $l['closed_at'] >= $end)));
+            $currencies = array_column($demo['loans'], 'currency', 'guid');
+            $installments = [];
+            foreach ($demo['installments'] as $item) {
+                if (empty($item['deleted_at']) && isset($currencies[$item['loan_guid']]) && $item['due_date'] <= $upcomingTo) {
+                    $installments[] = $item + ['currency' => $currencies[$item['loan_guid']]];
+                }
+            }
+            $paidLater = [];
+            foreach ($demo['payments'] as $payment) {
+                if (empty($payment['deleted_at']) && (string) ($payment['created_at'] ?? '') >= $end) {
+                    $paidLater[$payment['installment_guid']] = ($paidLater[$payment['installment_guid']] ?? 0.0) + (float) $payment['amount'];
+                }
+            }
+        }
+
+        $loansByCurrency = [];
+        foreach ($loans as $loan) {
+            $currency = (string) ($loan['currency'] ?? 'ARS');
+            $loansByCurrency[$currency] = ($loansByCurrency[$currency] ?? 0) + 1;
+        }
+        ksort($loansByCurrency);
+
+        $overdue = [];
+        $upcoming = 0;
+        foreach ($installments as $item) {
+            $due = substr((string) $item['due_date'], 0, 10);
+            $paidAsOf = max(0.0, (float) ($item['paid_amount'] ?? 0) - ($paidLater[$item['guid']] ?? 0.0));
+            $balance = round((float) $item['total_amount'] + (float) ($item['late_fee'] ?? 0) - $paidAsOf, 2);
+            if ($balance <= 0) continue;
+            if ($due < $asOf) {
+                $currency = (string) ($item['currency'] ?? 'ARS');
+                $overdue[$currency] = round(($overdue[$currency] ?? 0.0) + $balance, 2);
+            } elseif ($due > $asOf) {
+                $upcoming++;
+            }
+        }
+        ksort($overdue);
+
+        return [
+            'as_of' => $asOf,
+            'upcoming_to' => $upcomingTo,
+            'customers' => (int) $customers,
+            'active_loans' => count($loans),
+            'active_loans_by_currency' => $loansByCurrency,
+            'overdue_by_currency' => $overdue,
+            'upcoming_installments' => $upcoming,
+        ];
+    }
+
+    /** Tabs of the global metrics report, in display order. */
+    public const REPORT_TABS = ['situacion' => 'Situacion actual', 'aprobados' => 'Prestamos aprobados', 'cobranza' => 'Cobranza y flujo del periodo'];
+
+    public static function normalizeReportTab(?string $tab): string
+    {
+        return array_key_exists((string) $tab, self::REPORT_TABS) ? (string) $tab : 'situacion';
+    }
+
+    /**
+     * Collection status of installments due in [$from, $to] (collected / overdue / upcoming)
+     * plus cash flow of the period (payments received vs capital lent), per currency.
+     */
+    public function getCollectionSummary(string $from, string $to, ?\CodeIgniter\Database\BaseConnection $connection = null, ?string $today = null): array
+    {
+        [$from, $to] = self::normalizeDateRange($from, $to);
+        $today = $today ?? date('Y-m-d');
+        $end = date('Y-m-d', strtotime($to . ' +1 day')) . ' 00:00:00';
+
+        try {
+            $db = $connection ?? \Config\Database::connect();
+            $installments = $db->table('installments i')
+                ->select('i.total_amount, i.late_fee, i.paid_amount, i.due_date, l.currency')
+                ->join('loans l', 'l.guid = i.loan_guid')
+                ->where('i.deleted_at', null)->where('l.deleted_at', null)
+                ->where('i.due_date >=', $from)->where('i.due_date <=', $to)
+                ->get()->getResultArray();
+            $payments = $db->table('payments')->select('currency')->selectSum('amount', 'amount')
+                ->where('deleted_at', null)
+                ->where('created_at >=', $from . ' 00:00:00')->where('created_at <', $end)
+                ->groupBy('currency')->get()->getResultArray();
+        } catch (Throwable $exception) {
+            if ($connection !== null) throw $exception;
+            log_message('error', 'Collection summary unavailable: {message}', ['message' => $exception->getMessage()]);
+            $demo = $this->fallbackData();
+            $currencies = array_column($demo['loans'], 'currency', 'guid');
+            $installments = [];
+            foreach ($demo['installments'] as $item) {
+                if (empty($item['deleted_at']) && isset($currencies[$item['loan_guid']]) && $item['due_date'] >= $from && $item['due_date'] <= $to) {
+                    $installments[] = $item + ['currency' => $currencies[$item['loan_guid']]];
+                }
+            }
+            $payments = [];
+            foreach ($demo['payments'] as $payment) {
+                $date = (string) ($payment['created_at'] ?? '');
+                if (empty($payment['deleted_at']) && $date >= $from . ' 00:00:00' && $date < $end) {
+                    $payments[] = $payment;
+                }
+            }
+        }
+
+        $empty = ['expected' => 0.0, 'collected' => 0.0, 'overdue' => 0.0, 'upcoming' => 0.0, 'income' => 0.0, 'outflow' => 0.0];
+        $byCurrency = [];
+        foreach ($installments as $item) {
+            $totals = &$byCurrency[(string) ($item['currency'] ?? 'ARS')];
+            $totals ??= $empty;
+            $total = (float) ($item['total_amount'] ?? 0) + (float) ($item['late_fee'] ?? 0);
+            $paid = min($total, max(0.0, (float) ($item['paid_amount'] ?? 0)));
+            $totals['expected'] += $total;
+            $totals['collected'] += $paid;
+            $totals[substr((string) $item['due_date'], 0, 10) < $today ? 'overdue' : 'upcoming'] += $total - $paid;
+            unset($totals);
+        }
+        foreach ($payments as $payment) {
+            $totals = &$byCurrency[(string) ($payment['currency'] ?? 'ARS')];
+            $totals ??= $empty;
+            $totals['income'] += (float) $payment['amount'];
+            unset($totals);
+        }
+        foreach ($this->getApprovedLoansSummary($from, $to, $connection)['by_currency'] as $currency => $approved) {
+            $byCurrency[$currency] ??= $empty;
+            $byCurrency[$currency]['outflow'] = (float) $approved['principal'];
+        }
+
+        ksort($byCurrency);
+        foreach ($byCurrency as &$totals) {
+            foreach ($totals as $field => $value) {
+                $totals[$field] = round($value, 2);
+            }
+            $totals['net'] = round($totals['income'] - $totals['outflow'], 2);
+            $totals['collected_pct'] = $totals['expected'] > 0 ? round($totals['collected'] / $totals['expected'] * 100, 1) : 0.0;
+            $totals['overdue_pct'] = $totals['expected'] > 0 ? round($totals['overdue'] / $totals['expected'] * 100, 1) : 0.0;
+        }
+        unset($totals);
+
+        return ['from' => $from, 'to' => $to, 'by_currency' => $byCurrency];
+    }
+
     public function getApprovedLoansSummary(string $from, string $to, ?\CodeIgniter\Database\BaseConnection $connection = null): array
     {
         [$from, $to] = self::normalizeDateRange($from, $to);
@@ -871,6 +1042,56 @@ class AppRepository
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /** Pagination metadata shared by the paginated report listings. */
+    public static function paginationMeta(int $total, int $page, int $perPage): array
+    {
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min(max(1, $page), $pages);
+
+        return [
+            'page' => $page, 'per_page' => $perPage, 'total' => $total, 'pages' => $pages,
+            'from' => $total === 0 ? 0 : ($page - 1) * $perPage + 1, 'to' => min($page * $perPage, $total),
+        ];
+    }
+
+    /** Overdue installments (oldest due date first), $perPage per page. */
+    public function getOverduePage(int $page = 1, int $perPage = 10): array
+    {
+        $overdue = array_values(array_filter(
+            $this->getInstallments(),
+            static fn(array $item): bool => $item['status'] === 'overdue'
+        ));
+        $pagination = self::paginationMeta(count($overdue), $page, $perPage);
+
+        return [
+            'installments' => array_slice($overdue, ($pagination['page'] - 1) * $perPage, $perPage),
+            'pagination' => $pagination,
+        ];
+    }
+
+    /** Audit events (newest first), fetching only the requested page from the database. */
+    public function getAuditPage(int $page = 1, int $perPage = 10, ?\CodeIgniter\Database\BaseConnection $connection = null): array
+    {
+        try {
+            $db = $connection ?? \Config\Database::connect();
+            $total = $db->table('audit_logs')->countAllResults();
+            $pagination = self::paginationMeta($total, $page, $perPage);
+            $logs = $db->table('audit_logs')->select('created_at, action, entity_type, entity_guid')
+                ->orderBy('created_at', 'DESC')
+                ->limit($perPage, ($pagination['page'] - 1) * $perPage)
+                ->get()->getResultArray();
+        } catch (Throwable $exception) {
+            if ($connection !== null) throw $exception;
+            log_message('error', 'Audit pagination unavailable: {message}', ['message' => $exception->getMessage()]);
+            $logs = $this->getAuditLogs();
+            usort($logs, static fn(array $a, array $b): int => strcmp((string) $b['created_at'], (string) $a['created_at']));
+            $pagination = self::paginationMeta(count($logs), $page, $perPage);
+            $logs = array_slice($logs, ($pagination['page'] - 1) * $perPage, $perPage);
+        }
+
+        return ['logs' => $logs, 'pagination' => $pagination];
     }
 
     public function getAuditLogs(): array

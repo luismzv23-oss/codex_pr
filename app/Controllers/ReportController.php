@@ -15,22 +15,25 @@ class ReportController extends BaseController
 
         return view('reports/dashboard', [
             'title' => 'Metricas globales',
-            'dashboard' => $this->repository->getDashboardData(),
+            'snapshot' => $this->repository->getPortfolioSnapshot($to),
             'approved' => $this->repository->getApprovedLoansSummary($from, $to),
+            'collection' => $this->repository->getCollectionSummary($from, $to),
             'presets' => AppRepository::approvedLoansPresets(),
+            'tabs' => AppRepository::REPORT_TABS,
+            'tab' => AppRepository::normalizeReportTab($this->request->getGet('tab')),
         ]);
     }
 
     public function overdue()
     {
-        $overdue = array_values(array_filter(
-            $this->repository->getInstallments(),
-            static fn(array $item): bool => $item['status'] === 'overdue'
-        ));
+        $data = $this->repository->getOverduePage(max(1, (int) $this->request->getGet('page')));
 
-        return view('reports/overdue', [
-            'title' => 'Analisis de mora',
-            'installments' => $overdue,
-        ]);
+        if ($this->request->isAJAX()) {
+            return $this->response->setHeader('Cache-Control', 'no-store')->setJSON([
+                'html' => view('reports/_overdue_listing', $data), 'pagination' => $data['pagination'],
+            ]);
+        }
+
+        return view('reports/overdue', ['title' => 'Analisis de mora'] + $data);
     }
 }
