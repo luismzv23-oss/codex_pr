@@ -26,7 +26,11 @@ class ReportController extends BaseController
 
     public function overdue()
     {
-        $data = $this->repository->getOverduePage(max(1, (int) $this->request->getGet('page')));
+        $data = $this->repository->getOverdueGroupPage(
+            max(1, (int) $this->request->getGet('page')),
+            10,
+            trim((string) $this->request->getGet('cliente'))
+        );
 
         if ($this->request->isAJAX()) {
             return $this->response->setHeader('Cache-Control', 'no-store')->setJSON([

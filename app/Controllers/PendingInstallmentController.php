@@ -4,6 +4,9 @@ namespace App\Controllers;
 
 class PendingInstallmentController extends BaseController
 {
+    /** Installments shown per page. */
+    public const PER_PAGE = 8;
+
     public function index()
     {
         $buscar = trim((string) $this->request->getGet('buscar'));
@@ -78,17 +81,29 @@ class PendingInstallmentController extends BaseController
 
         usort($installments, static fn(array $a, array $b): int => strcmp($a['due_date'], $b['due_date']));
 
+        $installments = array_values($installments);
+        $perPage = self::PER_PAGE;
+        $pagination = \App\Support\AppRepository::paginationMeta(count($installments), max(1, (int) $this->request->getGet('page')), $perPage);
+        $pageItems = array_slice($installments, ($pagination['page'] - 1) * $perPage, $perPage);
+        $filters = ['buscar' => $buscar, 'estado' => $estado, 'periodo' => $periodo];
+
+        if ($this->request->isAJAX()) {
+            return $this->response->setHeader('Cache-Control', 'no-store')->setJSON([
+                'html' => view('pending_installments/_listing', ['installments' => $pageItems, 'pagination' => $pagination] + $filters),
+                'pagination' => $pagination,
+            ]);
+        }
+
         return view('pending_installments/index', [
             'title' => 'Cuotas pendientes',
-            'installments' => array_values($installments),
+            'installments' => $pageItems,
+            'pagination' => $pagination,
+            // Summary covers every filtered installment, not just the current page.
             'summary' => [
                 'total' => count($installments),
                 'overdue' => count(array_filter($installments, static fn(array $item): bool => $item['status'] === 'overdue')),
                 'amount_due' => round(array_sum(array_map(static fn(array $item): float => (float) ($item['amount_due'] ?? 0), $installments)), 2),
             ],
-            'buscar' => $buscar,
-            'estado' => $estado,
-            'periodo' => $periodo,
-        ]);
+        ] + $filters);
     }
 }

@@ -1056,19 +1056,101 @@ class AppRepository
         ];
     }
 
-    /** Overdue installments (oldest due date first), $perPage per page. */
-    public function getOverduePage(int $page = 1, int $perPage = 10): array
+    /** Overdue installments grouped customer → loan, paginated by customer ($perPage customers per page). */
+    public function getOverdueGroupPage(int $page = 1, int $perPage = 10, string $customerGuid = ''): array
     {
-        $overdue = array_values(array_filter(
-            $this->getInstallments(),
-            static fn(array $item): bool => $item['status'] === 'overdue'
-        ));
-        $pagination = self::paginationMeta(count($overdue), $page, $perPage);
+        // Only open loans (same set as the "Activos" tab of Préstamos): a paid loan cannot be in arrears.
+        $groups = self::groupOverdueInstallments($this->getInstallments(), $this->getLoansByStatus('active'));
+
+        // Filter options: only customers currently in arrears, alphabetically, with their document.
+        $customers = $this->getCustomersIndexed();
+        $options = array_map(static fn(array $group): array => [
+            'guid' => $group['guid'],
+            'full_name' => $group['name'],
+            'dni' => $customers[$group['guid']]['dni'] ?? '',
+        ], $groups);
+        usort($options, static fn(array $a, array $b): int => strcasecmp($a['full_name'], $b['full_name']));
+
+        $customerGuid = in_array($customerGuid, array_column($options, 'guid'), true) ? $customerGuid : '';
+        if ($customerGuid !== '') {
+            $groups = array_values(array_filter($groups, static fn(array $group): bool => $group['guid'] === $customerGuid));
+        }
+        $pagination = self::paginationMeta(count($groups), $page, $perPage);
 
         return [
-            'installments' => array_slice($overdue, ($pagination['page'] - 1) * $perPage, $perPage),
+            'groups' => array_slice($groups, ($pagination['page'] - 1) * $perPage, $perPage),
             'pagination' => $pagination,
+            'customerOptions' => $options,
+            'cliente' => $customerGuid,
         ];
+    }
+
+    /**
+     * Group overdue installments by customer and loan. Each installment gets paid/owed amounts,
+     * days late and payment_status ('none' or 'partial'). Installments of unknown (e.g. deleted)
+     * loans are ignored. Customers are ordered by their oldest overdue installment.
+     */
+    public static function groupOverdueInstallments(array $installments, array $loans, ?string $today = null): array
+    {
+        $today = strtotime($today ?? date('Y-m-d'));
+        $loansByGuid = array_column($loans, null, 'guid');
+        $groups = [];
+
+        foreach ($installments as $item) {
+            if (($item['status'] ?? '') !== 'overdue' || ! isset($loansByGuid[$item['loan_guid'] ?? ''])) {
+                continue;
+            }
+            $loan = $loansByGuid[$item['loan_guid']];
+            $currency = (string) ($loan['currency'] ?? 'ARS');
+            $customerGuid = (string) ($loan['customer_guid'] ?? '');
+            $total = round((float) ($item['total_amount'] ?? 0) + (float) ($item['late_fee'] ?? 0), 2);
+            $paid = round((float) ($item['paid_amount'] ?? 0), 2);
+            $owed = round(max(0.0, $total - $paid), 2);
+            $due = substr((string) $item['due_date'], 0, 10);
+
+            $customer = &$groups[$customerGuid];
+            $customer ??= [
+                'guid' => $customerGuid, 'name' => (string) ($loan['customer_name'] ?? 'Cliente no disponible'),
+                'oldest_due' => $due, 'installment_count' => 0, 'owed_by_currency' => [], 'loans' => [],
+            ];
+            $customer['oldest_due'] = min($customer['oldest_due'], $due);
+            $customer['installment_count']++;
+            $customer['owed_by_currency'][$currency] = round(($customer['owed_by_currency'][$currency] ?? 0.0) + $owed, 2);
+
+            $loanGroup = &$customer['loans'][$loan['guid']];
+            $loanGroup ??= [
+                'guid' => (string) $loan['guid'], 'label' => (string) ($loan['alias'] ?? $loan['guid']),
+                'currency' => $currency, 'owed' => 0.0, 'installments' => [],
+            ];
+            $loanGroup['owed'] = round($loanGroup['owed'] + $owed, 2);
+            $loanGroup['installments'][] = [
+                'installment_number' => $item['installment_number'] ?? null,
+                'due_date' => $due,
+                'days_late' => max(0, (int) floor(($today - strtotime($due)) / 86400)),
+                'total' => $total,
+                'paid' => $paid,
+                'owed' => $owed,
+                'payment_status' => $paid > 0 ? 'partial' : 'none',
+            ];
+            unset($customer, $loanGroup);
+        }
+
+        foreach ($groups as &$customer) {
+            ksort($customer['owed_by_currency']);
+            uasort($customer['loans'], static fn(array $a, array $b): int => strcmp($a['label'], $b['label']));
+            foreach ($customer['loans'] as &$loanGroup) {
+                usort($loanGroup['installments'], static fn(array $a, array $b): int => strcmp($a['due_date'], $b['due_date']));
+            }
+            unset($loanGroup);
+            $customer['loans'] = array_values($customer['loans']);
+            $customer['loan_count'] = count($customer['loans']);
+        }
+        unset($customer);
+
+        $groups = array_values($groups);
+        usort($groups, static fn(array $a, array $b): int => [$a['oldest_due'], $a['name']] <=> [$b['oldest_due'], $b['name']]);
+
+        return $groups;
     }
 
     /** Audit events (newest first), fetching only the requested page from the database. */

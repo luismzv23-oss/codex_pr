@@ -2,9 +2,11 @@
 /**
  * Prev/next pager with the same markup as the loans listing.
  * Expects: $pagination (AppRepository::paginationMeta), $baseUrl (path), $noun (plural label), $label (aria label).
+ * Optional: $query (extra GET params kept on every page link, e.g. active filters).
  * Links carry data-page so assets/js/ajax-pager.js can load them without a full reload.
  */
-$pageUrl = static fn(int $page): string => $baseUrl . '?' . http_build_query(['page' => $page]);
+$query = array_filter($query ?? [], static fn($value): bool => $value !== '' && $value !== null);
+$pageUrl = static fn(int $page): string => $baseUrl . '?' . http_build_query($query + ['page' => $page]);
 ?>
 <nav aria-label="<?= esc($label, 'attr') ?>" class="flex flex-wrap items-center justify-between gap-4">
     <p class="text-sm text-slate-500 dark:text-slate-400" role="status">Mostrando <?= (int) $pagination['from'] ?>–<?= (int) $pagination['to'] ?> de <?= (int) $pagination['total'] ?> <?= esc($noun) ?></p>
